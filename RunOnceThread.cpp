@@ -22,8 +22,8 @@ int32_t RunOnceThread::run(RunOnceFunc *func, void *in, void *out)
 
     if (SUCCEED(rc)) {
         mFunc = func;
-        mIn = in;
-        mOut = out;
+        mIn   = in;
+        mOut  = out;
         rc = newTask(NULL);
         if (!SUCCEED(rc)) {
             LOGE(mModule, "Failed to start thread");

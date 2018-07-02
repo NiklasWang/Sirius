@@ -16,9 +16,9 @@ public:
         int32_t stride, int32_t scanline, void *data);
 
 public:
-    virtual int32_t copyPrivateData(void *dst, int32_t maxSize) override;
+    virtual int32_t copyHeader(void *dst, int32_t maxSize) override;
     virtual int32_t copyData(void *dst, int32_t maxSize) override;
-    virtual int32_t sizeOfPrivateData() override;
+    virtual int32_t sizeOfHeader() override;
     virtual RequestType type() override;
     virtual const char *name() override;
 

@@ -9,8 +9,8 @@ namespace sirius {
 
 class ClientRequestIntf {
 public:
-    virtual int32_t sizeOfPrivateData() = 0;
-    virtual int32_t copyPrivateData(void *dst, int32_t maxSize) = 0;
+    virtual int32_t sizeOfHeader() = 0;
+    virtual int32_t copyHeader(void *dst, int32_t maxSize) = 0;
     virtual int32_t copyData(void *dst, int32_t maxSize) = 0;
     virtual RequestType type() = 0;
     virtual const char *name() = 0;

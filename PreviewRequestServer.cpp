@@ -3,20 +3,21 @@
 
 namespace sirius {
 
-int32_t PreviewRequestServer::getPrivateDataSize()
+int32_t PreviewRequestServer::getHeaderSize()
 {
-    return sizeof(PreviewSize);
+    return sizeof(PreviewNV21Header);
 }
 
-int32_t PreviewRequestServer::getRequestDataSize()
+int32_t PreviewRequestServer::getDataSize()
 {
-    return 1920 * 1080 * 1.5; // TODO: Different preview size
+    // Client will remove stride
+    return mHeader.previewW * mHeader.previewH * 3 / 2;
 }
 
-int32_t PreviewRequestServer::copyPrivateData(
+int32_t PreviewRequestServer::copyHeader(
     void *dst, void *src, int32_t *size)
 {
-    *size = getPrivateDataSize();
+    *size = getHeaderSize();
     memcpy(dst, src, *size);
     return NO_ERROR;
 }

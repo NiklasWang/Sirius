@@ -5,7 +5,7 @@ namespace sirius {
 #define CHECK_MEM_AVAILABLE() \
     ({ \
         int32_t __rc = NO_ERROR; \
-        if (ISNULL(mMem)) { \
+        if (ISNULL(mCtl)) { \
             LOGD(mModule, "Memory not set."); \
             __rc = NOT_INITED; \
         } \
@@ -18,16 +18,9 @@ RequestType getType(RequestType type)
         REQUEST_TYPE_MAX_INVALID : type;
 }
 
-void ServerClientControl::SemaphoreEx::init(int32_t n)
-{
-    pthread_mutex_init(&mutex, NULL);
-    pthread_cond_init(&cond, NULL);
-    cnt = n;
-}
-
 ServerClientControl::ServerClientControl() :
     mModule(MODULE_SERVER_CLIENT_CONTROL),
-    mMem(NULL)
+    mCtl(NULL)
 {
 }
 
@@ -38,29 +31,21 @@ ServerClientControl::~ServerClientControl()
 int32_t ServerClientControl::setRequest(RequestType type, bool required)
 {
     int32_t rc = CHECK_MEM_AVAILABLE();
-    bool prev = false;
 
     if (SUCCEED(rc)) {
-        prev = mMem[getType(type)].requests;
-        mMem[getType(type)].requests = required;
-    }
-
-    if (SUCCEED(rc)) {
-        if (prev != required) {
-            mMem[getType(type)].sem.init();
-        }
+        mCtl.request[getType(type)].requested = required;
     }
 
     return rc;
 }
 
-bool ServerClientControl::requests(RequestType type)
+bool ServerClientControl::requested(RequestType type)
 {
     int32_t rc = CHECK_MEM_AVAILABLE();
     bool result = false;
 
     if (SUCCEED(rc)) {
-        result = mMem[getType(type)].requests;
+        result = mCtl.request[getType(type)].requested;
     }
 
     return result;
@@ -71,13 +56,13 @@ int32_t ServerClientControl::getFirstFreshMemLock(
 {
     int32_t rc = CHECK_MEM_AVAILABLE();
     RequestType requestType = getType(type);
-    RequestMemory *mem = mMem[requestType].mems;
+    RequestMemory *mem = mCtl.request[requestType].mems;
     int64_t ts = 2^63 - 1;
     int32_t index = -1;
     int32_t lastIndex = -1;
 
     if (SUCCEED(rc)) {
-        for (int32_t i = 0; i < mMem[requestType].memNum; i++) {
+        for (int32_t i = 0; i < mCtl.request[requestType].memNum; i++) {
             pthread_mutex_lock(&mem[i].l);
             if (ts > mem[i].ts &&
                 mem[i].stat == MEMORY_STAT_FRESH) {
@@ -97,7 +82,7 @@ int32_t ServerClientControl::getFirstFreshMemLock(
         if (index == -1) {
             *fd = -1;
         } else {
-            *fd = mMem[requestType].mems[index].fd;
+            *fd = mCtl.request[requestType].mems[index].fd;
         }
     }
 
@@ -108,11 +93,11 @@ int32_t ServerClientControl::getUsedMemLock(
     RequestType type, int32_t *fd)
 {
     int32_t rc = CHECK_MEM_AVAILABLE();
-    RequestMemory *mem = mMem[getType(type)].mems;
+    RequestMemory *mem = mCtl.request[getType(type)].mems;
     int32_t index = -1;
 
     if (SUCCEED(rc)) {
-        for (int32_t i = 0; i < mMem[getType(type)].memNum; i++) {
+        for (int32_t i = 0; i < mCtl.request[getType(type)].memNum; i++) {
             pthread_mutex_lock(&mem[i].l);
             if (mem[i].stat == MEMORY_STAT_USED) {
                 index = i;
@@ -126,7 +111,7 @@ int32_t ServerClientControl::getUsedMemLock(
         if (index == -1) {
             *fd = -1;
         } else {
-            *fd = mMem[getType(type)].mems[index].fd;
+            *fd = mCtl.request[getType(type)].mems[index].fd;
         }
     }
 
@@ -137,11 +122,11 @@ int32_t ServerClientControl::findClientMemory(
     RequestType type, int32_t fd, RequestMemory **mem)
 {
     RequestType requestType = getType(type);
-    RequestMemory *mems = mMem[requestType].mems;
+    RequestMemory *mems = mCtl.request[requestType].mems;
     bool found = false;
 
     *mem = NULL;
-    for (int32_t i = 0; i < mMem[requestType].memNum; i++) {
+    for (int32_t i = 0; i < mCtl.request[requestType].memNum; i++) {
         if (mems[i].fd == fd) {
             *mem = &mems[i];
             found = true;
@@ -183,7 +168,7 @@ int32_t ServerClientControl::setMemSize(RequestType type, int32_t size)
     int32_t rc = CHECK_MEM_AVAILABLE();
 
     if (SUCCEED(rc)) {
-        mMem[getType(type)].size = size;
+        mCtl.request[getType(type)].size = size;
     }
 
     return rc;
@@ -194,7 +179,7 @@ int32_t ServerClientControl::getMemSize(RequestType type, int32_t *size)
     int32_t rc = CHECK_MEM_AVAILABLE();
 
     if (SUCCEED(rc)) {
-        *size = mMem[getType(type)].size;
+        *size = mCtl.request[getType(type)].size;
     }
 
     return rc;
@@ -229,7 +214,7 @@ int32_t ServerClientControl::addMemory(
 {
     int32_t rc = NOT_FOUND;
     RequestType requestType = getType(type);
-    RequestMemory *mems = mMem[requestType].mems;
+    RequestMemory *mems = mCtl.request[requestType].mems;
 
     for (int32_t i = 0; i < REQUEST_HANDLER_MAX_MEMORY_NUM; i++) {
         if (mems[i].fd == -1) {
@@ -243,7 +228,7 @@ int32_t ServerClientControl::addMemory(
     }
 
     if (SUCCEED(rc)) {
-        mMem[requestType].memNum++;
+        mCtl.request[requestType].memNum++;
     }
 
     return rc;
@@ -274,21 +259,21 @@ int32_t ServerClientControl::unlockMemory(RequestType type, int32_t fd)
     return rc;
 }
 
-Semaphore *ServerClientControl::getSemaphore(RequestType type)
+int32_t ServerClientControl::getHeader(Header &header)
 {
-    int32_t rc = CHECK_MEM_AVAILABLE();
-    Semaphore *result = NULL;
+    header = mCtl.header;
+    return NO_ERROR;
+}
 
-    if (SUCCEED(rc)) {
-        result = &mMem[getType(type)].sem;
-    }
-
-    return result;
+int32_t ServerClientControl::setHeader(Header &header)
+{
+    mCtl.header = header;
+    return NO_ERROR;
 }
 
 int32_t ServerClientControl::getTotoalSize()
 {
-    return sizeof(MemoryBlock) * REQUEST_TYPE_MAX_INVALID;
+    return sizeof(ControlMemory);
 }
 
 int32_t ServerClientControl::setMemory(void *mem, int32_t size, bool init)
@@ -299,23 +284,23 @@ int32_t ServerClientControl::setMemory(void *mem, int32_t size, bool init)
     if (size < getTotoalSize()) {
         LOGE(mModule, "Invalid memory size, %d", size);
         rc = NO_MEMORY;
-    }
-
-    if (SUCCEED(rc)) {
-        mMem = static_cast<MemoryBlock *>(mem);
+    } else {
+        mCtl = static_cast<ControlMemory *>(mem);
     }
 
     if (SUCCEED(rc) && init) {
+        memset(&mCtl.previewNV21Header,  0, sizeof(PreviewNV21Header));
+        memset(&mCtl.pictureNV21Header,  0, sizeof(PictureNV21Header));
+        memset(&mCtl.pictureBayerHeader, 0, sizeof(PictureBayerHeader));
         for (int32_t i = 0; i < REQUEST_TYPE_MAX_INVALID; i++) {
-            mMem[i].requests = false;
-            mMem[i].memNum = 0;
-            mMem[i].size = 0;
-            mMem[i].sem.init();
+            mCtl.request[i].requested = false;
+            mCtl.request[i].memNum = 0;
+            mCtl.request[i].size = 0;
             for (int32_t j = 0; j < REQUEST_HANDLER_MAX_MEMORY_NUM; j++) {
-                mMem[i].mems[j].fd = -1;
-                mMem[i].mems[j].stat = MEMORY_STAT_USED;
-                mMem[i].mems[j].ts = 0;
-                pthread_mutex_init(&mMem[i].mems[j].l, NULL);
+                mCtl.request[i].mems[j].fd = -1;
+                mCtl.request[i].mems[j].stat = MEMORY_STAT_USED;
+                mCtl.request[i].mems[j].ts = 0;
+                pthread_mutex_init(&mCtl.request[i].mems[j].l, NULL);
             }
         }
     }

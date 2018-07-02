@@ -11,10 +11,6 @@ namespace sirius {
 class HandlerOpsIntf {
 public:
     virtual int32_t sendCallback(RequestType type, void *data) = 0;
-    virtual int32_t waitClientSem(RequestType type, Semaphore **sem) = 0;
-    virtual int32_t sendClientFd(int32_t fd) = 0;
-    virtual int32_t sendClientMsg(const char *data, int32_t len) = 0;
-    virtual int32_t receiveClientMsg(char *data, int32_t maxlen) = 0;
     virtual int32_t allocateIon(void **buf, int32_t len, int32_t *fd) = 0;
     virtual int32_t releaseIon(void *buf) = 0;
     virtual int32_t getFirstFreshMemLock(RequestType type, int32_t *fd) = 0;
@@ -26,7 +22,7 @@ public:
     virtual int32_t addMemory(RequestType type, int32_t clientfd, bool fresh = false) = 0;
     virtual int32_t unlockMemory(RequestType type, int32_t fd) = 0;
     virtual int32_t setRequestedMark(RequestType type, bool enable = false) = 0;
-    virtual bool clientReady() = 0;
+    virtual int32_t getHeader(Header &header) = 0;
 
 public:
     virtual ~HandlerOpsIntf() {}

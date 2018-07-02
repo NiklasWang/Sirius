@@ -3,20 +3,20 @@
 
 namespace sirius {
 
-int32_t YuvPictureRequestServer::getPrivateDataSize()
+int32_t YuvPictureRequestServer::getHeaderSize()
 {
-    return sizeof(PictureSize);
+    return sizeof(PictureNV21Header);
 }
 
-int32_t YuvPictureRequestServer::getRequestDataSize()
+int32_t YuvPictureRequestServer::getDataSize()
 {
-    return 3264 * 2448 * 1.5; // TODO: Different picture size
+    return mHeader.pictureW * mHeader.pictureH * 3 / 2;
 }
 
-int32_t YuvPictureRequestServer::copyPrivateData(
+int32_t YuvPictureRequestServer::copyHeader(
     void *dst, void *src, int32_t *size)
 {
-    *size = getPrivateDataSize();
+    *size = getHeaderSize();
     memcpy(dst, src, *size);
     return NO_ERROR;
 }

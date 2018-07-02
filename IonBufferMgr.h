@@ -7,10 +7,6 @@
 
 namespace sirius {
 
-#define ION_ALLOC_ALIGN_SIZE   4096
-#define ION_ALLOC_FLAGS        ION_FLAG_CACHED
-#define ION_ALLOC_HEAP_ID_MASK (0x1 << ION_IOMMU_HEAP_ID)
-
 class IonBufferMgr :
     public noncopyable  {
 public:
@@ -47,10 +43,13 @@ private:
     Buffer *findBuf(void *buf);
 
 private:
-    int32_t mIonFd;
     List<Buffer> mBuffers;
     RWLock       mBufLock;
     ModuleType   mModule;
+
+private:
+    static int32_t mIonFd;
+    static pthread_mutex_t mIonFdLocker;
 };
 
 };

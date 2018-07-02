@@ -3,30 +3,18 @@
 
 namespace sirius {
 
-pthread_mutex_t RequestHandler::mSocketL = PTHREAD_MUTEX_INITIALIZER;
-
 int32_t RequestHandler::construct()
 {
     int32_t rc = NO_ERROR;
-    int32_t size = getDataSize();
 
     if (mConstructed) {
         rc = ALREADY_INITED;
     }
 
     if (SUCCEED(rc)) {
-        rc = mOps->setMemSize(mType, size);
+        rc = mSSSM.construct();
         if (!SUCCEED(rc)) {
-            LOGE(mModule, "Failed to set memory size %d, %d", size, rc);
-        }
-    }
-
-    if (SUCCEED(rc)) {
-        if (mOps->clientReady()) {
-            rc = allocMemAndShare();
-            if (!SUCCEED(rc)) {
-                LOGE(mModule, "Failed to alloc and share memory, %d", rc);
-            }
+            LOGE(mModule, "Failed to construct ssm, %d", rc);
         }
     }
 
@@ -38,28 +26,19 @@ int32_t RequestHandler::construct()
     return rc;
 }
 
-int32_t RequestHandler::allocMemAndShare()
+int32_t RequestHandler::setSocketFd(int32_t fd)
 {
     int32_t rc = NO_ERROR;
 
     if (SUCCEED(rc)) {
-        rc = allocMem();
+        rc = mSSSM.setClientFd(fd);
         if (!SUCCEED(rc)) {
-            LOGE(mModule, "Failed to alloc memory, %d", rc);
-        }
-    }
-
-    if (SUCCEED(rc)) {
-        rc = shareMem();
-        if (!SUCCEED(rc)) {
-            LOGE(mModule, "Failed to share memory, %d", rc);
-        } else {
-            mMemShared = true;
+            LOGE(mModule, "Failed to construct ssm, %d", rc);
         }
     }
 
     return rc;
-}
+};
 
 int32_t RequestHandler::destruct()
 {
@@ -106,7 +85,7 @@ int32_t RequestHandler::allocMem()
     int32_t rc = NO_ERROR;
     void *mem = NULL;
     int32_t fd = -1;
-    int32_t size = getDataSize();
+    int32_t size = getExpectedBufferSize();
 
     if (!ISNULL(mMem)) {
         LOGE(mModule, "Already alloced memory");
@@ -190,7 +169,7 @@ int32_t RequestHandler::shareSingleMem(int32_t fd)
     int32_t clientfd = -1;
 
     if (SUCCEED(rc)) {
-        sprintf(msg, SOCKET_SERVER_GREETING_STR " %d", getType());
+        sprintf(msg, SOCKET_SERVER_SHARE_STR " %d", getType());
         rc = mOps->sendClientMsg(msg, strlen(msg));
         if (!SUCCEED(rc)) {
             LOGE(mModule, "Failed to send msg %s, %d", msg, rc);
@@ -341,11 +320,50 @@ int32_t RequestHandler::shareMem()
 int32_t RequestHandler::onClientReady()
 {
     int32_t rc = NO_ERROR;
+    int32_t size = 0;
+
+    if (SUCCEED(rc)) {
+        rc = mOps->getHeader(mHeader);
+        if (!SUCCEED(rc)) {
+            LOGE(mModule, "Failed to set memory size %d, %d", size, rc);
+        }
+    }
+
+    if (SUCCEED(rc)) {
+        size = getExpectedBufferSize();
+        rc = mOps->setMemSize(mType, size);
+        if (!SUCCEED(rc)) {
+            LOGE(mModule, "Failed to set memory %dB to %s, %d", size, )
+        }
+    }
 
     if (!mMemShared) {
         rc = allocMemAndShare();
         if (!SUCCEED(rc)) {
             LOGE(mModule, "Failed to share mem with client, %d", rc);
+        }
+    }
+
+    return rc;
+}
+
+int32_t RequestHandler::allocMemAndShare()
+{
+    int32_t rc = NO_ERROR;
+
+    if (SUCCEED(rc)) {
+        rc = allocMem();
+        if (!SUCCEED(rc)) {
+            LOGE(mModule, "Failed to alloc memory, %d", rc);
+        }
+    }
+
+    if (SUCCEED(rc)) {
+        rc = shareMem();
+        if (!SUCCEED(rc)) {
+            LOGE(mModule, "Failed to share memory, %d", rc);
+        } else {
+            mMemShared = true;
         }
     }
 
@@ -501,9 +519,9 @@ int32_t RequestHandler::abort()
     return final;
 }
 
-int32_t RequestHandler::getDataSize()
+int32_t RequestHandler::getExpectedBufferSize()
 {
-    return getPrivateDataSize() + getRequestDataSize();
+    return getHeaderSize() + getDataSize();
 }
 
 int32_t RequestHandler::processClientUpdate()
@@ -601,7 +619,7 @@ int32_t RequestHandler::copyToUserBuf(
     }
 
     if (SUCCEED(rc)) {
-        datSize = getDataSize();
+        datSize = getExpectedBufferSize();
         if (datSize == 0) {
             LOGE(mModule, "Invalid data size");
             rc = UNKNOWN_ERROR;
@@ -637,14 +655,14 @@ int32_t RequestHandler::copyToUserBuf(
 
     if (SUCCEED(rc)) {
         int32_t copied = 0;
-        rc = copyPrivateData(buf, mem->buf, &copied);
+        rc = copyHeader(buf, mem->buf, &copied);
         if (!SUCCEED(rc)) {
             LOGE(mModule, "Failed to copy private data");
         }
     }
 
     if (SUCCEED(rc)) {
-        privateSize = getPrivateDataSize();
+        privateSize = getHeaderSize();
         if (privateSize == 0) {
             LOGD(mModule, "No private data");
         }
@@ -653,8 +671,8 @@ int32_t RequestHandler::copyToUserBuf(
     if (SUCCEED(rc)) {
         copyData((int8_t *)buf + privateSize,
             (int8_t *)mem->buf + privateSize,
-            getRequestDataSize() < mem->size ?
-                getRequestDataSize() : mem->size);
+            getDataSize() < mem->size ?
+                getDataSize() : mem->size);
     }
 
     if (SUCCEED(rc)) {

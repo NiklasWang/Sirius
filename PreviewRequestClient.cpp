@@ -73,18 +73,18 @@ int32_t PreviewRequestClient::onPreviewFrameReady(
     return rc;
 }
 
-int32_t PreviewRequestClient::copyPrivateData(void *dst, int32_t maxSize)
+int32_t PreviewRequestClient::copyHeader(void *dst, int32_t maxSize)
 {
     int32_t rc = NO_ERROR;
 
-    if (sizeOfPrivateData() > maxSize) {
+    if (sizeOfHeader() > maxSize) {
         LOGE(mModule, "Insufficient memory to copy private data %d / %d",
-            sizeOfPrivateData(), maxSize);
+            sizeOfHeader(), maxSize);
         rc = NO_MEMORY;
     }
 
     if (SUCCEED(rc)) {
-        memcpy(dst, &mLastSize, sizeOfPrivateData());
+        memcpy(dst, &mLastSize, sizeOfHeader());
     }
 
     return rc;
@@ -110,7 +110,7 @@ int32_t PreviewRequestClient::copyData(void *dst, int32_t maxSize)
     return rc;
 }
 
-int32_t PreviewRequestClient::sizeOfPrivateData()
+int32_t PreviewRequestClient::sizeOfHeader()
 {
     return sizeof(PreviewSize);
 }

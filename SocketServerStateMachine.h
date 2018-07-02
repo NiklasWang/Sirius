@@ -14,8 +14,11 @@ class SocketServerStateMachine :
 public:
     int32_t startServer();
     int32_t waitForConnect();
+    int32_t waitForConnect(int32_t *clientfd);
     int32_t receiveMsg(char *data, int32_t maxlen);
+    int32_t receiveMsg(int32_t clientfd, char *data, int32_t maxlen);
     int32_t sendMsg(const char *data, int32_t len);
+    int32_t sendMsg(int32_t clientfd, const char *data, int32_t len);
     int32_t receiveFd(int32_t *fd);
     int32_t sendFd(int32_t fd);
 
@@ -23,8 +26,7 @@ public:
     int32_t cancelWaitConnect();
     bool waitingMsg();
     int32_t cancelWaitMsg();
-    int32_t setServerSocket(int32_t serverfd);
-    int32_t getServerSocket();
+    int32_t setClientFd(int32_t fd);
 
 private:
     enum cmd_type {
@@ -52,6 +54,7 @@ private:
         char *msg;
         int32_t len;
         int32_t max_len;
+        int32_t fd;
     };
 
     struct cmd_info {
@@ -105,15 +108,17 @@ private:
 
 private:
     bool       mConstructed;
-    int32_t    mServerFd;
     bool       mOwnServer;
-    int32_t    mClientFds[MAX_CLIENT_ALLOWED]; // TODO: Multi-client connection support
+    int32_t    mClientFd;
     status     mStatus;
     bool       mWaitingMsg;
     int32_t    mCancelWait;
     ModuleType mModule;
     sp<ThreadPoolEx> mThreads;
-    static const SMFunc mFunc[];
+
+private:
+    static int32_t      kServerFd;
+    static const SMFunc kFunc[];
     static const char * const kStateStr[];
     static const char * const kCmdStr[];
 };

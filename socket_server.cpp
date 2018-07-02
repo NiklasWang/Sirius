@@ -86,8 +86,7 @@ int32_t start_server(int32_t *socketfd)
     }
 
     if (SUCCEED(rc)) {
-        //max one client now
-        rc = listen(sockfd, 1);
+        rc = listen(sockfd, MAX_CLIENT_ALLOWED);
         if (!SUCCEED(rc)) {
             LOGE(MODULE_SOCKET_SERVER, "Failed to listen, %s", strerror(errno));
             rc = SYS_ERROR;

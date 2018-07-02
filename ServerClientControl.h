@@ -12,7 +12,7 @@ class ServerClientControl :
     public noncopyable {
 public:
     int32_t setRequest(RequestType type, bool required = false);
-    bool requests(RequestType type);
+    bool requested(RequestType type);
     int32_t getFirstFreshMemLock(RequestType type, int32_t *fd);
     int32_t getUsedMemLock(RequestType type, int32_t *fd);
     int32_t setMemStatus(RequestType type, int32_t fd, bool fresh = false);
@@ -21,7 +21,8 @@ public:
     int32_t lockMemory(RequestType type, int32_t fd);
     int32_t addMemory(RequestType type, int32_t clientfd, bool fresh = false);
     int32_t unlockMemory(RequestType type, int32_t fd);
-    Semaphore *getSemaphore(RequestType type);
+    int32_t getHeader(Header &header);
+    int32_t setRequestHeader(RequestType type, Header &header);
 
 public:
     int32_t getTotoalSize();
@@ -38,14 +39,6 @@ private:
         int32_t fd, RequestMemory **mem);
 
 private:
-    class SemaphoreEx :
-        public Semaphore {
-    public:
-        void init(int32_t n = 0);
-        SemaphoreEx(int32_t n = 0) :
-            Semaphore(n) {}
-    };
-
     enum MemoryStatus {
         MEMORY_STAT_USED,
         MEMORY_STAT_FRESH,
@@ -59,16 +52,20 @@ private:
     };
 
     struct MemoryBlock {
-        bool          requests;
+        bool          requested;
         int32_t       memNum;
         int32_t       size;
         RequestMemory mems[REQUEST_HANDLER_MAX_MEMORY_NUM];
-        SemaphoreEx   sem;
+    };
+
+    struct ControlMemory {
+        Header      header;
+        MemoryBlock request[REQUEST_TYPE_MAX_INVALID];
     };
 
 private:
-    ModuleType   mModule;
-    MemoryBlock *mMem;
+    ModuleType     mModule;
+    ControlMemory *mCtl;
 };
 
 };

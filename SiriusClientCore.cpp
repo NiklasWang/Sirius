@@ -332,14 +332,14 @@ int32_t SiriusClientCore::copyToServer(ClientRequestIntf *intf,
     int32_t sizeOfP = -1;
 
     if (SUCCEED(rc)) {
-        sizeOfP = intf->sizeOfPrivateData();
+        sizeOfP = intf->sizeOfHeader();
         if (sizeOfP < 0) {
             LOGE(mModule, "Failed to get size of private data, %d", rc);
         }
     }
 
     if (SUCCEED(rc)) {
-        rc = intf->copyPrivateData(dst, maxSize);
+        rc = intf->copyHeader(dst, maxSize);
         if (!SUCCEED(rc)) {
             LOGE(mModule, "Failed to copy private data, %d", rc);
         }
@@ -474,8 +474,8 @@ int32_t SiriusClientCore::acceptSingleRequestMemory()
     }
 
     if (SUCCEED(rc) && !mAbortOnce) {
-        if (strncmp(msg, SOCKET_SERVER_GREETING_STR,
-            strlen(SOCKET_SERVER_GREETING_STR))) {
+        if (strncmp(msg, SOCKET_SERVER_SHARE_STR,
+            strlen(SOCKET_SERVER_SHARE_STR))) {
             LOGE(mModule, "Unknown msg from server \"%s\", %d", msg, rc);
             rc = INVALID_FORMAT;
         }
@@ -560,23 +560,6 @@ int32_t SiriusClientCore::acceptSingleRequestMemory()
             LOGD(mModule, "Abort this run once func");
             rc = USER_ABORTED;
         }
-    }
-
-    return rc;
-}
-
-int32_t SiriusClientCore::convertToRequestType(
-    char *msg, RequestType *type)
-{
-    int32_t rc = NO_ERROR;
-    int32_t value = atoi(msg + strlen(SOCKET_SERVER_GREETING_STR) + 1);
-
-    if (value < 0) {
-        *type = REQUEST_TYPE_MAX_INVALID;
-        LOGE(mModule, "Invalid msg, \"%s\"", msg);
-        rc = PARAM_INVALID;
-    } else {
-        *type = static_cast<RequestType>(value);
     }
 
     return rc;

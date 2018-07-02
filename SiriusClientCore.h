@@ -40,7 +40,6 @@ private:
 private:
     int32_t waitForPushRequestMemory();
     int32_t acceptSingleRequestMemory();
-    int32_t convertToRequestType(char *msg, RequestType *type);
     int32_t addMemoryMap(RequestType type,
         void *mem, int32_t fd, int32_t size);
     int32_t findMemoryMap(RequestType type,

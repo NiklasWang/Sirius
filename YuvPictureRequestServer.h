@@ -10,27 +10,13 @@ class YuvPictureRequestServer :
     public RequestHandler,
     public noncopyable {
 public:
-    int32_t getPrivateDataSize() override;
-    int32_t getRequestDataSize() override;
-    int32_t copyPrivateData(void *dst, void *src, int32_t *size) override;
+    int32_t getHeaderSize() override;
+    int32_t getDataSize() override;
+    int32_t copyHeader(void *dst, void *src, int32_t *size) override;
 
 public:
     YuvPictureRequestServer(HandlerOpsIntf *ops);
     virtual ~YuvPictureRequestServer();
-
-private:
-    enum PictureFormat {
-        PICTURE_FORMAT_NV21,
-    };
-
-    struct PictureSize {
-        int32_t w;
-        int32_t h;
-        int32_t stride;
-        int32_t scanline;
-        int32_t  size;
-        PictureFormat format;
-    };
 };
 
 };

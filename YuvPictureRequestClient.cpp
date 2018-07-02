@@ -73,18 +73,18 @@ int32_t YuvPictureRequestClient::onYuvPictureFrameReady(
     return rc;
 }
 
-int32_t YuvPictureRequestClient::copyPrivateData(void *dst, int32_t maxSize)
+int32_t YuvPictureRequestClient::copyHeader(void *dst, int32_t maxSize)
 {
     int32_t rc = NO_ERROR;
 
-    if (sizeOfPrivateData() > maxSize) {
+    if (sizeOfHeader() > maxSize) {
         LOGE(mModule, "Insufficient memory to copy private data %d / %d",
-            sizeOfPrivateData(), maxSize);
+            sizeOfHeader(), maxSize);
         rc = NO_MEMORY;
     }
 
     if (SUCCEED(rc)) {
-        memcpy(dst, &mLastSize, sizeOfPrivateData());
+        memcpy(dst, &mLastSize, sizeOfHeader());
     }
 
     return rc;
@@ -110,7 +110,7 @@ int32_t YuvPictureRequestClient::copyData(void *dst, int32_t maxSize)
     return rc;
 }
 
-int32_t YuvPictureRequestClient::sizeOfPrivateData()
+int32_t YuvPictureRequestClient::sizeOfHeader()
 {
     return sizeof(YuvPictureSize);
 }

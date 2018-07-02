@@ -21,9 +21,9 @@ public:
     int32_t wait();
     int32_t abort();
 
-    int32_t getDataSize(); // size of buffer to be enqueue
-
+    int32_t getExpectedBufferSize();
     int32_t onClientReady();
+    int32_t setSocketFd(int32_t fd);
 
 public:
     int32_t runOnceFunc(void *in, void *out) override;
@@ -38,9 +38,9 @@ public:
     int32_t destruct();
 
 protected:
-    virtual int32_t getPrivateDataSize() = 0;
-    virtual int32_t getRequestDataSize() = 0;
-    virtual int32_t copyPrivateData(void *dst, void *src, int32_t *size) = 0;
+    virtual int32_t getHeaderSize() = 0;
+    virtual int32_t getDataSize() = 0;
+    virtual int32_t copyHeader(void *dst, void *src, int32_t *size) = 0;
 
 private:
     int32_t allocMemAndShare();
@@ -60,7 +60,7 @@ private:
 
     struct MemoryInfo {
         void   *buf;
-        int32_t  size;
+        int32_t size;
         int32_t serverfd;
         int32_t clientfd;
     };
@@ -90,7 +90,10 @@ private:
     UserBufferMgr   mBufMgr;
     RunOnce        *mRunOnce;
     bool            mAbortOnce;
-    static pthread_mutex_t mSocketL; // Lock for all inherited objects
+    SocketServerStateMachine mSSSM;
+
+protected:
+    Header          mHeader;
 };
 
 };

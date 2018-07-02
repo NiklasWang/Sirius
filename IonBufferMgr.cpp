@@ -5,8 +5,15 @@
 
 namespace sirius {
 
+#define ION_ALLOC_ALIGN_SIZE   4096
+#define ION_ALLOC_FLAGS        ION_FLAG_CACHED
+#define ION_ALLOC_HEAP_ID_MASK (0x1 << ION_IOMMU_HEAP_ID)
+
+int32_t IonBufferMgr::mIonFd = -1;
+
+pthread_mutex_t IonBufferMgr::mIonFdLocker = PTHREAD_MUTEX_INITIALIZER;
+
 IonBufferMgr::IonBufferMgr() :
-    mIonFd(-1),
     mModule(MODULE_ION_BUF_MANAGER)
 {
 }
@@ -21,11 +28,15 @@ int32_t IonBufferMgr::init()
     int32_t rc = NO_ERROR;
 
     if (mIonFd < 0) {
-        mIonFd = open("/dev/ion", O_RDONLY);
+        pthread_mutex_lock(&mIonFdLocker);
         if (mIonFd < 0) {
-            LOGE(mModule, "Failed to open /dev/ion, %s", strerror(errno));
-            rc = SYS_ERROR;
+            mIonFd = open("/dev/ion", O_RDONLY);
+            if (mIonFd < 0) {
+                LOGE(mModule, "Failed to open /dev/ion, %s", strerror(errno));
+                rc = SYS_ERROR;
+            }
         }
+        pthread_mutex_unlock(&mIonFdLocker);
     }
 
     return rc;
@@ -34,8 +45,12 @@ int32_t IonBufferMgr::init()
 int32_t IonBufferMgr::deinit()
 {
     if (mIonFd > 0) {
-        close(mIonFd);
-        mIonFd = -1;
+        pthread_mutex_lock(&mIonFdLocker);
+        if (mIonFd > 0) {
+            close(mIonFd);
+            mIonFd = -1;
+        }
+        pthread_mutex_unlock(&mIonFdLocker);
     }
 
     if (mBuffers.size()) {

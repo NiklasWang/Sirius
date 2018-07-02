@@ -83,13 +83,6 @@ int32_t SiriusCore::runOnceFunc(void * /*in*/, void * /*out*/)
     }
 
     if (SUCCEED(rc)) {
-        mServerSocket = mSS.getServerSocket();
-        if (mServerSocket < 0) {
-            LOGE(mModule, "Invalid server socket, %d", mServerSocket);
-        }
-    }
-
-    if (SUCCEED(rc)) {
         rc = mSS.waitForConnect();
         if (!SUCCEED(rc)) {
             LOGE(mModule, "Failed to wait for client connection");
@@ -100,14 +93,6 @@ int32_t SiriusCore::runOnceFunc(void * /*in*/, void * /*out*/)
         if (!mSS.connected()) {
             LOGD(mModule, "Client not connected, exit.");
             rc = NOT_EXIST;
-        }
-    }
-
-    if (SUCCEED(rc)) {
-        mListener = mSS;
-        rc = mListener.waitForConnect();
-        if (!SUCCEED(rc)) {
-            LOGE(mModule, "Failed to wait for listener connection");
         }
     }
 
@@ -151,26 +136,75 @@ int32_t SiriusCore::runOnceFunc(void * /*in*/, void * /*out*/)
     }
 
     if (SUCCEED(rc)) {
-        mClientReady = true;
-    }
-
-    if (SUCCEED(rc)) {
-        for (int32_t i = 0; i < REQUEST_TYPE_MAX_INVALID; i++) {
-            if (NOTNULL(mRequests[i])) {
-                rc = mRequests[i]->onClientReady();
-                if (!SUCCEED(rc)) {
-                    LOGE(mModule, "Failed to exit request handler %s",
-                        mRequests[i]->getName());
-                }
-            }
-        }
-    }
-
-    if (SUCCEED(rc)) {
         rc = enableCachedRequests();
         if (!SUCCEED(rc)) {
             LOGE(mModule, "Failed to enable cached requests, %d", rc);
         }
+    }
+
+    do {
+        int32_t clientfd = -1;
+        RequestType type = REQUEST_TYPE_MAX_INVALID;
+        RESETRESULT(rc);
+
+        if (SUCCEED(rc)) {
+            rc = mSS.waitForConnect(&clientfd);
+            if (!SUCCEED(rc)) {
+                LOGE(mModule, "Failed to wait for client connection");
+            }
+            if (rc == USER_ABORTED) {
+                LOGI(mModule, "Stop wait connect, aborted.");
+                break;
+            }
+        }
+
+        if (SUCCEED(rc)) {
+            mSocketMsg[0] = '\0';
+            rc = mSS.receiveMsg(clientfd, mSocketMsg, sizeof(mSocketMsg));
+            if (!SUCCEED(rc)) {
+                LOGE(mModule, "Failed to receive msg, %d", rc);
+            }
+        }
+
+        if (SUCCEED(rc)) {
+            rc = convertToRequestType(mSocketMsg, &type);
+            if (!SUCCEED(rc) || type == REQUEST_TYPE_MAX_INVALID) {
+                LOGE(mModule, "Invalid socket msg, %s", mSocketMsg);
+            }
+        }
+
+        if (SUCCEED(rc)) {
+            rc = mRequests[type]->setSocketFd(clientfd);
+            if (!SUCCEED(rc)) {
+                LOGE(mModule, "Failed to set socket fd %d to %s",
+                    clientfd, mRequests[type]->getName());
+            }
+        }
+    
+        if (SUCCEED(rc)) {
+            rc = mRequests[type]->onClientReady();
+            if (!SUCCEED(rc)) {
+                LOGE(mModule, "Failed to notify client connected to %s",
+                    rc, mRequests[type]->getName());
+            }
+        }
+    } while(rc != USER_ABORTED);
+
+    return rc;
+}
+
+int32_t SiriusCore::convertToRequestType(
+    char *msg, RequestType *type)
+{
+    int32_t rc = NO_ERROR;
+    int32_t value = atoi(msg + strlen(SOCKET_CLIENT_CONNECT_TYPE) + 1);
+
+    *type = REQUEST_TYPE_MAX_INVALID;
+    if (value < 0) {
+        LOGE(mModule, "Invalid msg, \"%s\"", msg);
+        rc = PARAM_INVALID;
+    } else {
+        *type = static_cast<RequestType>(value);
     }
 
     return rc;
@@ -180,20 +214,18 @@ int32_t SiriusCore::enableCachedRequests()
 {
     int32_t rc = NO_ERROR;
 
-    pthread_mutex_lock(&mCachedRequestL);
-
     for (int32_t i = 0; i < REQUEST_TYPE_MAX_INVALID; i++) {
         if (mCachedRequest[i]) {
             LOGD(mModule, "Enable cached request %d", i);
             rc = request(static_cast<RequestType>(i));
             if (!SUCCEED(rc)) {
                 LOGE(mModule, "Failed to create cached request %d", rc);
+            } else {
+                mCachedRequest[i] = false;
             }
-            mCachedRequest[i] = false;
         }
     }
 
-    pthread_mutex_unlock(&mCachedRequestL);
 
     return rc;
 }
@@ -211,6 +243,8 @@ int32_t SiriusCore::abortOnceFunc()
         rc = mSS.cancelWaitConnect();
         if (!SUCCEED(rc)) {
             LOGE(mModule, "Failed to cancel wait client");
+        } else {
+            mExit = true;
         }
     }
 
@@ -222,11 +256,6 @@ int32_t SiriusCore::abortOnceFunc()
     }
 
     return rc;
-}
-
-bool SiriusCore::clientReady()
-{
-    return mClientReady;
 }
 
 int32_t SiriusCore::destruct()
@@ -458,12 +487,10 @@ int32_t SiriusCore::request(RequestType type)
 
     if (SUCCEED(rc)) {
         if (!clientReady()) {
-            pthread_mutex_lock(&mCachedRequestL);
             if (!clientReady()) {
                 mCachedRequest[type] = true;
                 LOGD(mModule, "Client not ready, request %d cached.", type);
             }
-            pthread_mutex_unlock(&mCachedRequestL);
         }
     }
 
@@ -549,11 +576,9 @@ int32_t SiriusCore::abort(RequestType type)
 
     if (SUCCEED(rc)) {
         if (!clientReady()) {
-            pthread_mutex_lock(&mCachedRequestL);
             if (!clientReady()) {
                 mCachedRequest[type] = false;
             }
-            pthread_mutex_unlock(&mCachedRequestL);
         }
     }
 
@@ -701,22 +726,6 @@ int32_t SiriusCore::sendCallback(RequestType type, void *data)
     return mCb.send(type, data);
 }
 
-int32_t SiriusCore::waitClientSem(RequestType type, Semaphore **sem)
-{
-    int32_t rc = NO_ERROR;
-
-    Semaphore *semaphore = mCtl.getSemaphore(type);
-    if (!ISNULL(semaphore)) {
-        *sem = semaphore;
-    } else {
-        *sem = NULL;
-        LOGE(mModule, "Failed to get semaphore for type %d", type);
-        rc = NOT_FOUND;
-    }
-
-    return rc;
-}
-
 #define CHECK_CLIENT_STATUS() \
     ({ \
         int32_t __rc = NO_ERROR; \
@@ -800,16 +809,19 @@ int32_t SiriusCore::setRequestedMark(RequestType type, bool enable)
     return mCtl.setRequest(type, enable);
 }
 
+int32_t SiriusCore::getHeader(Header &header)
+{
+    return mCtl.getHeader(header)
+}
+
 SiriusCore:: SiriusCore() :
     mConstructed(false),
     mModule(MODULE_SIRIUS_CORE),
+    mExit(false),
     mCtlFd(-1),
     mCtlMem(NULL),
-    mClientReady(false),
-    mServerSocket(-1),
     mEvtSvr(NULL)
 {
-    pthread_mutex_init(&mCachedRequestL, NULL);
     for (int32_t i = 0; i < REQUEST_TYPE_MAX_INVALID; i++) {
         mRequests[i] = NULL;
         mCachedRequest[i] = false;
@@ -821,7 +833,6 @@ SiriusCore::~SiriusCore()
     if (mConstructed) {
         destruct();
     }
-    pthread_mutex_destroy(&mCachedRequestL);
 }
 
 int32_t SiriusCore::RunOnce::run(RunOnceFunc *func, void *in, void *out)

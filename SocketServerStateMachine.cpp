@@ -3,6 +3,8 @@
 
 namespace sirius {
 
+int32_t SocketServerStateMachine::kServerFd = -1;
+
 int32_t SocketServerStateMachine::startServer()
 {
     return stateMachine(CMD_START_SERVER, NULL);
@@ -10,7 +12,12 @@ int32_t SocketServerStateMachine::startServer()
 
 int32_t SocketServerStateMachine::waitForConnect()
 {
-    return stateMachine(CMD_WAIT_CONNECTION, NULL);
+    return stateMachine(CMD_WAIT_CONNECTION, &mClientFd);
+}
+
+int32_t SocketServerStateMachine::waitForConnect(int32_t *clientFd)
+{
+    return stateMachine(CMD_WAIT_CONNECTION, clientFd);
 }
 
 int32_t SocketServerStateMachine::receiveMsg(char *data, int32_t maxlen)
@@ -19,8 +26,23 @@ int32_t SocketServerStateMachine::receiveMsg(char *data, int32_t maxlen)
     msg_info msg = {
         .msg = data,
         .len = 0,
-        .max_len = maxlen,
+        .max_len  = maxlen,
+        .fd  = mClientFd,
     };
+
+    return stateMachine(CMD_RECEIVE_MSG, &msg);
+}
+
+int32_t SocketServerStateMachine::receiveMsg(int32_t clientfd, char *data, int32_t maxlen)
+{
+    mWaitingMsg = true;
+    msg_info msg = {
+        .msg = data,
+        .len = 0,
+        .max_len  = maxlen,
+        .fd  = clientfd,
+    };
+
     return stateMachine(CMD_RECEIVE_MSG, &msg);
 }
 
@@ -30,6 +52,18 @@ int32_t SocketServerStateMachine::sendMsg(const char *data, int32_t msglen)
         .msg = const_cast<char *>(data),
         .len = msglen,
         .max_len = msglen,
+        .fd  = mClientFd,
+    };
+    return stateMachine(CMD_SEND_MSG, &msg);
+}
+
+int32_t SocketServerStateMachine::sendMsg(int32_t clientfd, const char *data, int32_t msglen)
+{
+    msg_info msg = {
+        .msg = const_cast<char *>(data),
+        .len = msglen,
+        .max_len = msglen,
+        .fd  = clientfd,
     };
     return stateMachine(CMD_SEND_MSG, &msg);
 }
@@ -47,7 +81,24 @@ int32_t SocketServerStateMachine::sendFd(int32_t fd)
 
 bool SocketServerStateMachine::connected()
 {
-    return mClientFds[0] != -1;
+    return mClientFd != -1;
+}
+
+int32_t SocketServerStateMachine::setClientFd(int32_t fd)
+{
+    int32_t rc = NOT_INITED;
+
+    mClientFd = fd;
+
+    if (kServerFd != -1) {
+        updateToNewStatus(STATUS_STARTED);
+    }
+    if (mStatus == STATUS_STARTED) {
+        updateToNewStatus(STATUS_ACCEPTED_CLIENT);
+        rc = NO_ERROR;
+    }
+
+    return rc;
 }
 
 int32_t SocketServerStateMachine::cancelWaitConnect()
@@ -69,30 +120,18 @@ int32_t SocketServerStateMachine::cancelWaitMsg()
     return NO_ERROR;
 }
 
-int32_t SocketServerStateMachine::getServerSocket()
-{
-    return mServerFd;
-}
-
-int32_t SocketServerStateMachine::setServerSocket(int32_t serverfd)
-{
-    // Make sure constructed before this
-    mServerFd = serverfd;
-    updateToNewStatus(STATUS_STARTED);
-
-    return NO_ERROR;
-}
-
 SocketServerStateMachine::SocketServerStateMachine() :
     mConstructed(false),
-    mServerFd(-1),
     mOwnServer(false),
+    mClientFd(-1),
     mStatus(STATUS_UNINITED),
     mWaitingMsg(false),
     mCancelWait(false),
     mModule(MODULE_SOCKET_SERVER_SM)
 {
-    mClientFds[0] = -1;
+    if (kServerFd != -1) {
+        updateToNewStatus(STATUS_STARTED);
+    }
 }
 
 SocketServerStateMachine::~SocketServerStateMachine()
@@ -150,13 +189,13 @@ int32_t SocketServerStateMachine::destruct()
     }
 
     if (SUCCEED(rc)) {
-        if (mClientFds[0] > 0) {
-            disconnect_client(mClientFds[0]);
-            mClientFds[0] = -1;
+        if (mClientFd > 0) {
+            disconnect_client(mClientFd);
+            mClientFd = -1;
         }
-        if (mOwnServer && mServerFd > 0) {
-            stop_server(mServerFd);
-            mServerFd = -1;
+        if (mOwnServer && kServerFd > 0) {
+            stop_server(kServerFd);
+            kServerFd = -1;
         }
     }
 
@@ -170,7 +209,7 @@ int32_t SocketServerStateMachine::processTask(void *dat)
 
     switch (info->cmd) {
         case CMD_START_SERVER: {
-            rc = start_server(&mServerFd);
+            rc = start_server(&kServerFd);
             if (!SUCCEED(rc)) {
                 LOGE(mModule, "Failed to start server, %d", rc);
             } else {
@@ -179,7 +218,7 @@ int32_t SocketServerStateMachine::processTask(void *dat)
         } break;
         case CMD_WAIT_CONNECTION: {
             mCancelWait = false;
-            rc = poll_accept_wait(mServerFd, &mClientFds[0], &mCancelWait);
+            rc = poll_accept_wait(kServerFd, info->u.fd, &mCancelWait);
             if (!SUCCEED(rc)) {
                 LOGE(mModule, "Failed to poll data while sleeping, %d", rc);
             }
@@ -189,11 +228,12 @@ int32_t SocketServerStateMachine::processTask(void *dat)
             rc = NO_ERROR;
         } break;
         case CMD_RECEIVE_MSG: {
-            char *data = info->u.msg->msg;
+            char *data   = info->u.msg->msg;
             int32_t *len = &info->u.msg->len;
             int32_t max_len = info->u.msg->max_len;
+            int32_t fd   = info->u.msg->fd;
             data[0] = '\0';
-            rc = poll_read_wait(mClientFds[0], data, max_len, len, &mCancelWait);
+            rc = poll_read_wait(fd, data, max_len, len, &mCancelWait);
             if (!SUCCEED(rc)) {
                 LOGE(mModule, "Failed to poll data while sleeping, %d", rc);
             }
@@ -202,7 +242,8 @@ int32_t SocketServerStateMachine::processTask(void *dat)
         case CMD_SEND_MSG: {
             char *data = info->u.msg->msg;
             int32_t len = info->u.msg->len;
-            rc = sc_send_data(mClientFds[0], data, len);
+            int32_t fd   = info->u.msg->fd;
+            rc = sc_send_data(fd, data, len);
             if (!SUCCEED(rc)) {
                 LOGE(mModule, "Failed to send data, %d", rc);
             }
@@ -212,7 +253,7 @@ int32_t SocketServerStateMachine::processTask(void *dat)
         } break;
         case CMD_SEND_FD: {
             int32_t fd = *info->u.fd;
-            rc = sc_send_fd(mClientFds[0], fd);
+            rc = sc_send_fd(mClientFd, fd);
             if (!SUCCEED(rc)) {
                 LOGE(mModule, "Failed to send fd %d to client", fd);
             }
@@ -240,7 +281,7 @@ int32_t SocketServerStateMachine::taskDone(void *dat, int32_t result)
 }
 
 const SocketServerStateMachine::SMFunc
-    SocketServerStateMachine::mFunc[] = {
+    SocketServerStateMachine::kFunc[] = {
     [STATUS_UNINITED]        = &SocketServerStateMachine::procCmdUninitedState,
     [STATUS_INITED]          = &SocketServerStateMachine::procCmdInitedState,
     [STATUS_STARTED]         = &SocketServerStateMachine::procCmdStartedState,
@@ -253,7 +294,7 @@ const SocketServerStateMachine::SMFunc
 
 int32_t SocketServerStateMachine::stateMachine(cmd_type cmd, void *arg)
 {
-    return (this->*(mFunc[mStatus]))(cmd, arg);
+    return (this->*(kFunc[mStatus]))(cmd, arg);
 }
 
 int32_t SocketServerStateMachine::executeOnThread(
@@ -347,14 +388,15 @@ int32_t SocketServerStateMachine::procCmdInitedState(
 }
 
 int32_t SocketServerStateMachine::procCmdStartedState(
-    cmd_type cmd, void * /*arg*/)
+    cmd_type cmd, void *arg)
 {
     int32_t rc = NO_ERROR;
 
     switch (cmd) {
         case CMD_WAIT_CONNECTION: {
             cmd_info info;
-            info.cmd = cmd;
+            info.cmd  = cmd;
+            info.u.fd = (int32_t *)arg;
             rc = executeOnThread(&info);
             if (SUCCEED(rc)) {
                 info.sync.wait();
@@ -584,14 +626,12 @@ SocketServerStateMachine &SocketServerStateMachine::operator=(
     mStatus = STATUS_UNINITED;
     mCancelWait = false;
     mModule = rhs.mModule;
-    mServerFd = -1;
-    mClientFds[0] = -1;
+    mClientFd = -1;
 
     if (!SUCCEED(construct())) {
         LOGE(mModule, "Failed to construct while copy construction");
     }
 
-    mServerFd = rhs.mServerFd;
     mStatus = rhs.mStatus;
 
     return *this;

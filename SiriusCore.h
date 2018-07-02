@@ -30,7 +30,6 @@ public:
 
 public:
     int32_t sendCallback(RequestType type, void *data) override;
-    int32_t waitClientSem(RequestType type, Semaphore **sem) override;
     int32_t sendClientFd(int32_t fd) override;
     int32_t sendClientMsg(const char *data, int32_t len) override;
     int32_t receiveClientMsg(char *data, int32_t maxlen) override;
@@ -45,7 +44,7 @@ public:
     int32_t addMemory(RequestType type, int32_t clientfd, bool fresh = false) override;
     int32_t unlockMemory(RequestType type, int32_t fd) override;
     int32_t setRequestedMark(RequestType type, bool enable = false) override;
-    bool clientReady() override;
+    int32_t getHeader(Header &header) override;
 
 public:
     int32_t runOnceFunc(void *in, void *out) override;
@@ -64,6 +63,7 @@ private:
     int32_t createRequestHandler(RequestType type, bool wait);
     int32_t abortRequest(RequestType type);
     int32_t enableCachedRequests();
+    int32_t convertToRequestType(char *msg, RequestType *type);
 
 private:
     class RunOnce :
@@ -77,13 +77,12 @@ private:
 private:
     bool                     mConstructed;
     ModuleType               mModule;
+    bool                     mExit;
     int32_t                  mCtlFd;
     void                    *mCtlMem;
     ServerClientControl      mCtl;
-    bool                     mClientReady;
     SocketServerStateMachine mSS;
     SocketServerStateMachine mListener;
-    int32_t                  mServerSocket;
     char                     mSocketMsg[SOCKET_DATA_MAX_LEN];
     UserBufferMgr            mBufMgr;
     IonBufferMgr             mIon;
@@ -91,7 +90,6 @@ private:
     RunOnce                 *mRunOnce;
     RequestHandler          *mRequests[REQUEST_TYPE_MAX_INVALID];
     EventRequestServer      *mEvtSvr;
-    pthread_mutex_t          mCachedRequestL;
     bool                     mCachedRequest[REQUEST_TYPE_MAX_INVALID];
 };
 
