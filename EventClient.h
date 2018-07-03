@@ -10,14 +10,14 @@ namespace sirius {
 
 class SiriusClientCore;
 
-class EventRequestClient :
+class EventClient :
     public noncopyable {
 public:
     int32_t sendEvent(int32_t evt, int32_t arg1, int32_t arg2);
 
 public:
-    EventRequestClient();
-    ~EventRequestClient();
+    EventClient();
+    ~EventClient();
     int32_t construct();
     int32_t destruct();
 

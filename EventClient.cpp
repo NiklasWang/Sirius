@@ -1,10 +1,10 @@
 #include "common.h"
-#include "EventRequestClient.h"
+#include "EventClient.h"
 #include "SiriusClientCore.h"
 
 namespace sirius {
 
-int32_t EventRequestClient::sendEvent(
+int32_t EventClient::sendEvent(
     int32_t evt, int32_t arg1, int32_t arg2)
 {
     int32_t rc = NO_ERROR;
@@ -52,7 +52,7 @@ int32_t EventRequestClient::sendEvent(
     return rc;
 }
 
-int32_t EventRequestClient::convertEvtToMsg(char *msg, EvtInfo *evt)
+int32_t EventClient::convertEvtToMsg(char *msg, EvtInfo *evt)
 {
     sprintf(msg, SOCKET_EVENT_REQUEST_FORMAT " %d %d %d",
         evt->evt, evt->arg1, evt->arg2);
@@ -60,7 +60,7 @@ int32_t EventRequestClient::convertEvtToMsg(char *msg, EvtInfo *evt)
     return NO_ERROR;
 }
 
-EventRequestClient::EvtInfo::EvtInfo(
+EventClient::EvtInfo::EvtInfo(
     int32_t _evt, int32_t _arg1, int32_t _arg2) :
     evt(_evt),
     arg1(_arg1),
@@ -68,7 +68,7 @@ EventRequestClient::EvtInfo::EvtInfo(
 {
 }
 
-EventRequestClient::EventRequestClient() :
+EventClient::EventClient() :
     mConstructed(false),
     mModule(MODULE_EVT_REQUEST_CLIENT),
     mType(EXTENDED_EVENT),
@@ -76,14 +76,14 @@ EventRequestClient::EventRequestClient() :
     mCore(NULL)
 {}
 
-EventRequestClient::~EventRequestClient()
+EventClient::~EventClient()
 {
     if (mConstructed) {
         destruct();
     }
 }
 
-int32_t EventRequestClient::construct()
+int32_t EventClient::construct()
 {
     int32_t rc = NO_ERROR;
 
@@ -105,7 +105,7 @@ int32_t EventRequestClient::construct()
     return rc;
 }
 
-int32_t EventRequestClient::destruct()
+int32_t EventClient::destruct()
 {
     if (NOTNULL(mCore)) {
         mCore = NULL;
@@ -119,12 +119,12 @@ int32_t EventRequestClient::destruct()
     return NO_ERROR;
 }
 
-RequestType EventRequestClient::type()
+RequestType EventClient::type()
 {
     return mType;
 }
 
-const char *EventRequestClient::name()
+const char *EventClient::name()
 {
     return mName;
 }

@@ -14,7 +14,8 @@
 
 namespace sirius {
 
-class EventRequestServer;
+class EventServer;
+class DataServer;
 
 class SiriusCore :
     public SiriusIntf,
@@ -82,15 +83,17 @@ private:
     void                    *mCtlMem;
     ServerClientControl      mCtl;
     SocketServerStateMachine mSS;
-    SocketServerStateMachine mListener;
     char                     mSocketMsg[SOCKET_DATA_MAX_LEN];
-    UserBufferMgr            mBufMgr;
     IonBufferMgr             mIon;
     ServerCallbackThread     mCb;
     RunOnce                 *mRunOnce;
     RequestHandler          *mRequests[REQUEST_TYPE_MAX_INVALID];
-    EventRequestServer      *mEvtSvr;
+    EventServer             *mEvtSvr;
+    DataServer              *mDatSvr;
     bool                     mCachedRequest[REQUEST_TYPE_MAX_INVALID];
+
+private:
+    static const RequestType gRequestTypeMap[REQUEST_TYPE_MAX_INVALID];
 };
 
 };

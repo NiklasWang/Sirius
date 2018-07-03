@@ -248,13 +248,6 @@ int32_t SiriusCore::abortOnceFunc()
         }
     }
 
-    if (!mListener.connected()) {
-        rc = mListener.cancelWaitConnect();
-        if (!SUCCEED(rc)) {
-            LOGE(mModule, "Failed to cancel wait notifier");
-        }
-    }
-
     return rc;
 }
 
@@ -279,15 +272,14 @@ int32_t SiriusCore::destruct()
     }
 
     if (SUCCEED(rc)) {
-        void *buf = NULL;
-        int32_t size = 0;
-        rc = NO_ERROR;
-        while(rc != NOT_FOUND) {
-            rc = mBufMgr.dequeue(&buf, &size);
+        for (int32_t i = 0; i < REQUEST_TYPE_MAX_INVALID; i++) {
+            rc = mCtl->setRequest(gRequestTypeMap[i], false);
+            if (!SUCCEED(rc)) {
+                LOGE(mModule, "Failed to cancel request %d", i);
+            }
         }
-        rc = NO_ERROR;
     }
-
+    
     if (SUCCEED(rc)) {
         for (int32_t i = 0; i < REQUEST_TYPE_MAX_INVALID; i++) {
             if (NOTNULL(mRequests[i])) {
@@ -305,6 +297,7 @@ int32_t SiriusCore::destruct()
                         mRequests[i]->getName());
                     rc = NO_ERROR;
                 }
+                SECURE_DELETE(mRequests[i]);
             }
         }
     }
@@ -314,15 +307,6 @@ int32_t SiriusCore::destruct()
         if (!SUCCEED(rc)) {
             final |= rc;
             LOGE(mModule, "Failed to destruct socket state machine, %d", rc);
-            rc = NO_ERROR;
-        }
-    }
-
-    if (SUCCEED(rc)) {
-        rc = mListener.destruct();
-        if (!SUCCEED(rc)) {
-            final |= rc;
-            LOGE(mModule, "Failed to destruct listener socket, %d", rc);
             rc = NO_ERROR;
         }
     }
@@ -344,6 +328,7 @@ int32_t SiriusCore::destruct()
                 LOGE(mModule, "Failed to exit rcun once thread, %d", rc);
                 rc = NO_ERROR;
             }
+            SECURE_DELETE(mRunOnce);
         }
     }
 
@@ -894,6 +879,15 @@ RequestHandler *SiriusCore::createRequestHandler(RequestType type)
 
     return request;
 }
+
+const RequestType SiriusCore::gRequestTypeMap[] = {
+    [PREVIEW_NV21]   = PREVIEW_NV21,
+    [PICTURE_NV21]   = PICTURE_NV21,
+    [PICTURE_BAYER]  = PICTURE_BAYER,
+    [EXTENDED_EVENT] = EXTENDED_EVENT,
+    [CUSTOM_DATA]    = CUSTOM_DATA,
+    [REQUEST_TYPE_MAX_INVALID] = REQUEST_TYPE_MAX_INVALID,
+};
 
 };
 

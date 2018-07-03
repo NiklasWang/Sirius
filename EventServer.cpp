@@ -1,9 +1,9 @@
 #include "HandlerOpsIntf.h"
-#include "EventRequestServer.h"
+#include "EventServer.h"
 
 namespace sirius {
 
-EventRequestServer::EventRequestServer(
+EventServer::EventServer(
     HandlerOpsIntf *ops, int32_t server_socket) :
     mConstructed(false),
     mModule(MODULE_EVT_REQUEST_SERVER),
@@ -18,14 +18,14 @@ EventRequestServer::EventRequestServer(
         "server socket not valid, %d", server_socket);
 }
 
-EventRequestServer::~EventRequestServer()
+EventServer::~EventServer()
 {
     if (mConstructed) {
         destruct();
     }
 }
 
-int32_t EventRequestServer::construct()
+int32_t EventServer::construct()
 {
     int32_t rc = NO_ERROR;
 
@@ -62,7 +62,7 @@ int32_t EventRequestServer::construct()
     return rc;
 }
 
-int32_t EventRequestServer::destruct()
+int32_t EventServer::destruct()
 {
     int32_t rc = NO_ERROR;
     int32_t final = NO_ERROR;
@@ -102,7 +102,7 @@ int32_t EventRequestServer::destruct()
     return rc;
 }
 
-int32_t EventRequestServer::runOnceFunc(void * /*in*/, void * /*out*/)
+int32_t EventServer::runOnceFunc(void * /*in*/, void * /*out*/)
 {
     int32_t rc = NO_ERROR;
     char msg[SOCKET_DATA_MAX_LEN];
@@ -138,14 +138,14 @@ int32_t EventRequestServer::runOnceFunc(void * /*in*/, void * /*out*/)
     return rc;
 }
 
-EventRequestServer::EvtInfo::EvtInfo() :
+EventServer::EvtInfo::EvtInfo() :
     evt(-1),
     arg1(-1),
     arg2(-1)
 {
 }
 
-int32_t EventRequestServer::handleClientMsg(char *msg)
+int32_t EventServer::handleClientMsg(char *msg)
 {
     int32_t rc = NO_ERROR;
     EvtInfo evt;
@@ -167,8 +167,8 @@ int32_t EventRequestServer::handleClientMsg(char *msg)
     return rc;
 }
 
-int32_t EventRequestServer::convertMsgToEvt(
-    char *msg, EventRequestServer::EvtInfo *evt)
+int32_t EventServer::convertMsgToEvt(
+    char *msg, EventServer::EvtInfo *evt)
 {
     int32_t rc = NO_ERROR;
     int32_t cnt = 0;
@@ -185,12 +185,12 @@ int32_t EventRequestServer::convertMsgToEvt(
 }
 
 
-int32_t EventRequestServer::onOnceFuncFinished(int32_t /*rc*/)
+int32_t EventServer::onOnceFuncFinished(int32_t /*rc*/)
 {
     return NO_ERROR;
 }
 
-int32_t EventRequestServer::abortOnceFunc()
+int32_t EventServer::abortOnceFunc()
 {
     int32_t rc = NO_ERROR;
 
@@ -213,7 +213,7 @@ int32_t EventRequestServer::abortOnceFunc()
     return rc;
 }
 
-int32_t EventRequestServer::RunOnce::run(
+int32_t EventServer::RunOnce::run(
     RunOnceFunc *func, void *in, void *out)
 {
     int32_t rc = NO_ERROR;
@@ -233,12 +233,12 @@ int32_t EventRequestServer::RunOnce::run(
     return rc;
 }
 
-int32_t EventRequestServer::RunOnce::exit()
+int32_t EventServer::RunOnce::exit()
 {
     return RunOnceThread::exit();
 }
 
-bool EventRequestServer::RunOnce::isRuning()
+bool EventServer::RunOnce::isRuning()
 {
     return RunOnceThread::isRuning();
 }

@@ -8,6 +8,7 @@ enum RequestType {
     PICTURE_NV21,
     PICTURE_BAYER,
     EXTENDED_EVENT,
+    CUSTOM_DATA,
     REQUEST_TYPE_MAX_INVALID,
 };
 

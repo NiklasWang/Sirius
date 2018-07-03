@@ -242,7 +242,7 @@ bool SiriusClientCore::requested(RequestType type)
 {
     bool result = false;
 
-    if (mCtlReady && mCtl.requests(type)) {
+    if (mCtlReady && mCtl.requested(type)) {
         result = true;
     }
 

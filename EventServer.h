@@ -10,12 +10,12 @@ namespace sirius {
 
 class HandlerOpsIntf;
 
-class EventRequestServer :
+class EventServer :
     public RunOnceFunc,
     public noncopyable {
 public:
-    EventRequestServer(HandlerOpsIntf *ops, int32_t server_socket);
-    ~EventRequestServer();
+    EventServer(HandlerOpsIntf *ops, int32_t server_socket);
+    ~EventServer();
     int32_t construct();
     int32_t destruct();
 
