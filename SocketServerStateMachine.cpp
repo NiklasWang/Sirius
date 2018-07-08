@@ -104,7 +104,7 @@ int32_t SocketServerStateMachine::setClientFd(int32_t fd)
 int32_t SocketServerStateMachine::cancelWaitConnect()
 {
     // Don't post to state machine
-    mCancelWait = true;
+    mCancelConnect = true;
     return NO_ERROR;
 }
 
@@ -116,7 +116,7 @@ bool SocketServerStateMachine::waitingMsg()
 int32_t SocketServerStateMachine::cancelWaitMsg()
 {
     // Don't post to state machine
-    mCancelWait = true;
+    mCancelMsg = true;
     return NO_ERROR;
 }
 
@@ -126,7 +126,7 @@ SocketServerStateMachine::SocketServerStateMachine() :
     mClientFd(-1),
     mStatus(STATUS_UNINITED),
     mWaitingMsg(false),
-    mCancelWait(false),
+    mCancelConnect(false),
     mModule(MODULE_SOCKET_SERVER_SM)
 {
     if (kServerFd != -1) {
@@ -217,14 +217,16 @@ int32_t SocketServerStateMachine::processTask(void *dat)
             }
         } break;
         case CMD_WAIT_CONNECTION: {
-            mCancelWait = false;
-            rc = poll_accept_wait(kServerFd, info->u.fd, &mCancelWait);
-            if (!SUCCEED(rc)) {
+            mCancelConnect = false;
+            rc = poll_accept_wait(kServerFd, info->u.fd, &mCancelConnect);
+            if (rc == USER_ABORTED) {
+                LOGI(mModule, "Cancelled to wait connection.");
+            } else if (!SUCCEED(rc)) {
                 LOGE(mModule, "Failed to poll data while sleeping, %d", rc);
             }
         } break;
         case CMD_CANCEL_WAIT_CONNECTION: {
-            mCancelWait = true;
+            mCancelConnect = true;
             rc = NO_ERROR;
         } break;
         case CMD_RECEIVE_MSG: {
@@ -233,8 +235,10 @@ int32_t SocketServerStateMachine::processTask(void *dat)
             int32_t max_len = info->u.msg->max_len;
             int32_t fd   = info->u.msg->fd;
             data[0] = '\0';
-            rc = poll_read_wait(fd, data, max_len, len, &mCancelWait);
-            if (!SUCCEED(rc)) {
+            rc = poll_read_wait(fd, data, max_len, len, &mCancelMsg);
+            if (rc == USER_ABORTED) {
+                LOGI(mModule, "Cancelled to read msg from client.");
+            } else if (!SUCCEED(rc)) {
                 LOGE(mModule, "Failed to poll data while sleeping, %d", rc);
             }
             mWaitingMsg = false;
@@ -624,7 +628,7 @@ SocketServerStateMachine &SocketServerStateMachine::operator=(
 {
     mConstructed = false;
     mStatus = STATUS_UNINITED;
-    mCancelWait = false;
+    mCancelConnect = false;
     mModule = rhs.mModule;
     mClientFd = -1;
 

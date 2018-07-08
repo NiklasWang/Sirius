@@ -3,6 +3,44 @@
 
 namespace sirius {
 
+RequestType RequestHandler::getType()
+{
+    return mType;
+}
+
+const char *RequestHandler::getName()
+{
+    return mName;
+}
+
+RequestHandler::RequestHandler(HandlerOpsIntf *ops,
+    RequestType type, const char *name, uint32_t memNum) :
+    mConstructed(false),
+    mModule(MODULE_REQUEST_HANDLER),
+    mName(name),
+    mType(type),
+    mOps(ops),
+    mMemShared(false),
+    mMemNum(memNum),
+    mMem(NULL),
+    mRunOnce(NULL)
+{
+    ASSERT_LOG(mModule, NOTNULL(ops), "Ops shouldn't be NULL");
+    ASSERT_LOG(mModule, memNum != 0,  "Mem num shoudn't be 0");
+    ASSERT_LOG(mModule, mMemNum < REQUEST_HANDLER_MAX_MEMORY_NUM,
+        "Too much mem to share, %d/%d", mMemNum, REQUEST_HANDLER_MAX_MEMORY_NUM);
+    if (ISNULL(name)) {
+        name = "generic request handler";
+    }
+}
+
+RequestHandler::~RequestHandler()
+{
+    if (mConstructed) {
+        destruct();
+    }
+}
+
 int32_t RequestHandler::construct()
 {
     int32_t rc = NO_ERROR;
@@ -25,20 +63,6 @@ int32_t RequestHandler::construct()
 
     return rc;
 }
-
-int32_t RequestHandler::setSocketFd(int32_t fd)
-{
-    int32_t rc = NO_ERROR;
-
-    if (SUCCEED(rc)) {
-        rc = mSSSM.setClientFd(fd);
-        if (!SUCCEED(rc)) {
-            LOGE(mModule, "Failed to construct ssm, %d", rc);
-        }
-    }
-
-    return rc;
-};
 
 int32_t RequestHandler::destruct()
 {
@@ -63,6 +87,14 @@ int32_t RequestHandler::destruct()
     }
 
     if (SUCCEED(rc)) {
+        rc = mSSSM.destruct();
+        if (!SUCCEED(rc)) {
+            final |= rc;
+            LOGE(mModule, "Failed to destruct ssm, %d", rc);
+        }
+    }
+
+    if (SUCCEED(rc)) {
         rc = releaseMem();
         if (!SUCCEED(rc)) {
             LOGE(mModule, "Failed to release all buffers, %d", rc);
@@ -79,6 +111,20 @@ int32_t RequestHandler::destruct()
 
     return final;
 }
+
+int32_t RequestHandler::setSocketFd(int32_t fd)
+{
+    int32_t rc = NO_ERROR;
+
+    if (SUCCEED(rc)) {
+        rc = mSSSM.setClientFd(fd);
+        if (!SUCCEED(rc)) {
+            LOGE(mModule, "Failed to construct ssm, %d", rc);
+        }
+    }
+
+    return rc;
+};
 
 int32_t RequestHandler::allocMem()
 {
@@ -102,7 +148,8 @@ int32_t RequestHandler::allocMem()
 
     if (SUCCEED(rc)) {
         for (uint32_t i = 0; i < mMemNum; i++) {
-            mMem[i].buf = NULL;
+            mMem[i].id   = -1;
+            mMem[i].buf  = NULL;
             mMem[i].size = 0;
             mMem[i].serverfd = -1;
             mMem[i].clientfd = -1;
@@ -118,7 +165,8 @@ int32_t RequestHandler::allocMem()
                 break;
             } else {
                 LOGD(mModule, "Succeed to alloc %dB memory", size);
-                mMem[i].buf = mem;
+                mMem[i].id   = i;
+                mMem[i].buf  = mem;
                 mMem[i].size = size;
                 mMem[i].serverfd = fd;
             }
@@ -141,7 +189,8 @@ int32_t RequestHandler::releaseMem()
         for (uint32_t i = 0; i < mMemNum; i++) {
             if (NOTNULL(mMem[i].buf)) {
                 void *buf = mMem[i].buf;
-                mMem[i].buf = NULL;
+                mMem[i].id   = -1;
+                mMem[i].buf  = NULL;
                 mMem[i].size = 0;
                 mMem[i].serverfd = -1;
                 mMem[i].clientfd = -1;
@@ -170,7 +219,7 @@ int32_t RequestHandler::shareSingleMem(int32_t fd)
 
     if (SUCCEED(rc)) {
         sprintf(msg, SOCKET_SERVER_SHARE_STR " %d", getType());
-        rc = mOps->sendClientMsg(msg, strlen(msg));
+        rc = mSSSM.sendMsg(msg, strlen(msg));
         if (!SUCCEED(rc)) {
             LOGE(mModule, "Failed to send msg %s, %d", msg, rc);
         }
@@ -178,7 +227,7 @@ int32_t RequestHandler::shareSingleMem(int32_t fd)
 
     if (SUCCEED(rc)) {
         msg[0] = '\0';
-        rc = mOps->receiveClientMsg(msg, SOCKET_DATA_MAX_LEN);
+        rc = mSSSM.receiveMsg(msg, SOCKET_DATA_MAX_LEN);
         msg[SOCKET_DATA_MAX_LEN - 1] = '\0';
         if (!SUCCEED(rc)) {
             LOGE(mModule, "Failed to receive clent msg, %d", msg);
@@ -195,7 +244,7 @@ int32_t RequestHandler::shareSingleMem(int32_t fd)
     }
 
     if (SUCCEED(rc)) {
-        rc = mOps->sendClientFd(fd);
+        rc = mSSSM.sendFd(fd);
         if (!SUCCEED(rc)) {
             LOGE(mModule, "Failed to send client fd %d, %d", fd, rc);
         }
@@ -203,7 +252,7 @@ int32_t RequestHandler::shareSingleMem(int32_t fd)
 
     if (SUCCEED(rc)) {
         msg[0] = '\0';
-        rc = mOps->receiveClientMsg(msg, SOCKET_DATA_MAX_LEN);
+        rc = mSSSM.receiveMsg(msg, SOCKET_DATA_MAX_LEN);
         msg[SOCKET_DATA_MAX_LEN - 1] = '\0';
         if (!SUCCEED(rc)) {
             LOGE(mModule, "Failed to receive clent msg, %d", msg);
@@ -220,7 +269,7 @@ int32_t RequestHandler::shareSingleMem(int32_t fd)
     }
 
     if (SUCCEED(rc)) {
-        rc = convertToClientFd(msg, &clientfd);
+        rc = convertToClientFd(msg, SOCKET_CLIENT_REPLY_FD_STR, &clientfd);
         if (!SUCCEED(rc)) {
             LOGE(mModule, "Failed to convert to client fd, %d", rc);
         }
@@ -238,7 +287,7 @@ int32_t RequestHandler::shareSingleMem(int32_t fd)
     }
 
     if (SUCCEED(rc)) {
-        rc = mOps->addMemory(mType, clientfd, false);
+        rc = mOps->addMemory(getType(), clientfd, USED_MEMORY);
         if (!SUCCEED(rc)) {
             LOGE(mModule, "Failed to add memory to controller, %d", rc);
         }
@@ -247,14 +296,21 @@ int32_t RequestHandler::shareSingleMem(int32_t fd)
     return rc;
 }
 
-int32_t RequestHandler::convertToClientFd(char *msg, int32_t *clientfd)
+int32_t RequestHandler::convertToClientFd(char *msg, const char *prefix, int32_t *clientfd)
 {
     int32_t rc = NO_ERROR;
 
-    *clientfd = atoi(msg + strlen(SOCKET_CLIENT_REPLY_FD_STR) + 1);
-    if (*clientfd <= 0) {
-        LOGE(mModule, "Invalid msg, \"%s\"", msg);
+    if (!COMPARE_SAME_STRING(msg, prefix)) {
+        LOGE(mModule, "Prefix not match, %s VS %s", msg, prefix);
         rc = PARAM_INVALID;
+    }
+
+    if (!SUCCEED(rc)) {
+        *clientfd = atoi(msg + strlen(prefix) + 1);
+        if (*clientfd <= 0) {
+            LOGE(mModule, "Invalid msg, \"%s\"", msg);
+            rc = NOT_FOUND;
+        }
     }
 
     return rc;
@@ -286,17 +342,6 @@ int32_t RequestHandler::recordMemoryPair(int32_t serverfd, int32_t clientfd)
 int32_t RequestHandler::shareMem()
 {
     int32_t rc = NO_ERROR;
-    bool locked = false;
-
-    if (!mOps->clientReady()) {
-        LOGE(mModule, "Client not ready");
-        rc = NOT_READY;
-    }
-
-    if (SUCCEED(rc)) {
-        locked = true;
-        pthread_mutex_lock(&mSocketL);
-    }
 
     if (SUCCEED(rc)) {
         for (uint32_t i = 0; i < mMemNum; i++) {
@@ -308,39 +353,11 @@ int32_t RequestHandler::shareMem()
         }
     }
 
-    if (SUCCEED(rc) || !SUCCEED(rc)) {
-        if (locked) {
-            pthread_mutex_unlock(&mSocketL);
-        }
-    }
-
-    return rc;
-}
-
-int32_t RequestHandler::onClientReady()
-{
-    int32_t rc = NO_ERROR;
-    int32_t size = 0;
-
     if (SUCCEED(rc)) {
-        rc = mOps->getHeader(mHeader);
+        rc = mSSSM.sendMsg(SOCKET_SERVER_SHARE_DONE,
+            strlen(SOCKET_SERVER_SHARE_DONE));
         if (!SUCCEED(rc)) {
-            LOGE(mModule, "Failed to set memory size %d, %d", size, rc);
-        }
-    }
-
-    if (SUCCEED(rc)) {
-        size = getExpectedBufferSize();
-        rc = mOps->setMemSize(mType, size);
-        if (!SUCCEED(rc)) {
-            LOGE(mModule, "Failed to set memory %dB to %s, %d", size, )
-        }
-    }
-
-    if (!mMemShared) {
-        rc = allocMemAndShare();
-        if (!SUCCEED(rc)) {
-            LOGE(mModule, "Failed to share mem with client, %d", rc);
+            LOGE(mModule, "Failed to send share done msg, %d", rc);
         }
     }
 
@@ -370,97 +387,7 @@ int32_t RequestHandler::allocMemAndShare()
     return rc;
 }
 
-RequestType RequestHandler::getType()
-{
-    return mType;
-}
-
-const char *RequestHandler::getName()
-{
-    return mName;
-}
-
-RequestHandler::RequestHandler(HandlerOpsIntf *ops,
-    RequestType type, const char *name, uint32_t memNum) :
-    mConstructed(false),
-    mModule(MODULE_REQUEST_HANDLER),
-    mName(name),
-    mType(type),
-    mOps(ops),
-    mMemShared(false),
-    mMemNum(memNum),
-    mMem(NULL),
-    mRunOnce(NULL),
-    mAbortOnce(false)
-{
-    ASSERT_LOG(mModule, NOTNULL(ops), "Ops shouldn't be NULL");
-    ASSERT_LOG(mModule, memNum != 0,  "Mem num shoudn't be 0");
-    if (ISNULL(name)) {
-        name = "generic request handler";
-    }
-}
-
-RequestHandler::~RequestHandler()
-{
-    if (mConstructed) {
-        destruct();
-    }
-}
-
-int32_t RequestHandler::enqueue(void *buf, int32_t size)
-{
-    int32_t rc = NO_ERROR;
-    MemoryInfo *mem = NULL;
-    bool locked = false;
-
-    if (SUCCEED(rc)) {
-        rc = getFirstFreshMemLock(&mem);
-        if (!SUCCEED(rc)) {
-            LOGE(mModule, "Failed to find latest memory, %d", rc);
-        }
-        if (ISNULL(mem)) {
-            LOGD(mModule, "No available client memory to send user buf");
-            rc = NO_MEMORY;
-        } else {
-            locked = true;
-        }
-    }
-
-    if (!SUCCEED(rc)) {
-        rc = mBufMgr.enqueue(buf, size);
-        if (!SUCCEED(rc)) {
-            LOGE(mModule, "Failed to enqueue buf, %d", rc);
-        } else {
-            rc = NO_MEMORY;
-        }
-    }
-
-    if (SUCCEED(rc)) {
-        rc = copyToUserBuf(mem, buf, size);
-        if (!SUCCEED(rc)) {
-            LOGE(mModule, "Failed to copy to uer buffer, %d", rc);
-        }
-    }
-
-    if (SUCCEED(rc) || !SUCCEED(rc)) {
-        if (locked) {
-            rc = mOps->unlockMemory(mType, mem->clientfd);
-            if (!SUCCEED(rc)) {
-                LOGE(mModule, "Failed to unlock memory %d, %d",
-                    mem->clientfd, rc);
-            }
-        }
-    }
-
-    return RETURNIGNORE(rc, NO_MEMORY);
-}
-
-int32_t RequestHandler::dequeue(void **buf, int32_t *size)
-{
-    return mBufMgr.dequeue(buf, size);
-}
-
-int32_t RequestHandler::wait()
+int32_t RequestHandler::onClientReady()
 {
     int32_t rc = NO_ERROR;
 
@@ -478,10 +405,164 @@ int32_t RequestHandler::wait()
     }
 
     if (SUCCEED(rc)) {
-        // wait for client to return the result of requests
         rc = mRunOnce->run(this, NULL, NULL);
         if (!SUCCEED(rc)) {
             LOGE(mModule, "Failed to run once thread, %d", rc);
+        }
+    }
+
+    return rc;
+}
+
+int32_t RequestHandler::runOnceFunc(void * /*in*/, void * /*out*/)
+{
+    int32_t rc = NO_ERROR;
+
+    if (SUCCEED(rc)) {
+        rc = mOps->getHeader(mHeader);
+        if (!SUCCEED(rc)) {
+            LOGE(mModule, "Failed to set memory size %d, %d", size, rc);
+        }
+    }
+
+    if (SUCCEED(rc)) {
+        int32_t size = getExpectedBufferSize();
+        rc = mOps->setMemSize(getType(), size);
+        if (!SUCCEED(rc)) {
+            LOGE(mModule, "Failed to set memory %dB to %s, %d", size, )
+        }
+    }
+
+    if (SUCCEED(rc)) {
+        rc = allocMemAndShare();
+        if (!SUCCEED(rc)) {
+            LOGE(mModule, "Failed to share mem with client, %d", rc);
+        }
+    }
+
+    if (SUCCEED(rc)) {
+        do {
+            int32_t fd = 0;
+            RESETRESULT(rc);
+            char msg[SOCKET_DATA_MAX_LEN];
+            if (SUCCEED(rc)) {
+                msg[0] = '\0';
+                rc = mSSSM.receiveMsg(msg, SOCKET_DATA_MAX_LEN);
+                msg[SOCKET_DATA_MAX_LEN - 1] = '\0';
+                if (rc == USER_ABORTED) {
+                    LOGI(mModule, "Abort to read client msg.");
+                } else if (!SUCCEED(rc)) {
+                    LOGE(mModule, "Failed to receive clent msg, %d", msg);
+                }
+            }
+
+            if (SUCCEED(rc)) {
+                rc = convertToClientFd(msg, SOCKET_CLIENT_NOTIFIER_STR, &fd);
+                if (!SUCCEED(rc)) {
+                    LOGE(mModule, "Failed to convert, %s", msg);
+                }
+            }
+
+            if (SUCCEED(rc)) {
+                rc = onMemRefreshed(fd);
+                if (!SUCCEED(rc)) {
+                    LOGE(mModule, "Failed to process freshed memory, %d", rc);
+                }
+            }
+        } while (rc != USER_ABORTED);
+    }
+
+    return rc;
+}
+
+int32_t RequestHandler::onMemRefreshed(int32_t fd)
+{
+    int32_t rc = NO_ERROR;
+    int32_t id = -1;
+    void *buf  = NULL;
+    void *head = NULL;
+    void *dat  = NULL;
+
+    if (SUCCEED(rc)) {
+        for (int32_t i = 0; i < mMemNum; i++) {
+            if (mMem[i].clientfd == fd) {
+                id  = mMem[i].id;
+                buf = mMem[i].buf;
+                break;
+            }
+        }
+        if (id == -1) {
+            LOGE(mModule, "Invalid memory fd %d", fd);
+            rc = NOT_FOUND;
+        }
+    }
+
+    if (SUCCEED(rc)) {
+        bool fresh = USED_MEMORY;
+        rc = mOps->getMemStatus(getType(), fd, &fresh);
+        if (!SUCCEED(rc)) {
+            LOGE(mModule, "Failed to get mem status, %d.", rc);
+        }
+        if (fresh != FRESH_MEMORY) {
+            LOGE(mModule, "Invalid mem status, should be fresh.");
+            rc = NOT_EXIST;
+        }
+    }
+
+    if (SUCCEED(rc)) {
+        int32_t size = getHeaderSize();
+        if (size > 0) {
+            head = buf;
+            dat  = (void *)((int8_t *)buf + size);
+        } else {
+            LOGE(mModule, "Invalid header size, %d", size);
+            rc = NOT_READY;
+        }
+    }
+
+    if (SUCCEED(rc)) {
+        rc = mOps->sendCallback(getType(), id, head, dat);
+        if (!SUCCEED(rc)) {
+            LOGE(mModule, "Failed to send callback, %d", rc);
+        }
+    }
+
+    return rc;
+}
+
+int32_t RequestHandler::enqueue(int32_t id)
+{
+    int32_t rc = NO_ERROR;
+    int32_t clientFd = -1;
+
+    if (SUCCEED(rc)) {
+        for (uint32_t i = 0; i < mMemNum; i++) {
+            if (mMem[i].id == id) {
+                clientFd = mMem[i].clientfd;
+                break;
+            }
+        }
+        if (clientFd == -1) {
+            LOGE(mModule, "Failed to find enqueue buf, %d", id);
+            rc = NOT_FOUND;
+        }
+    }
+
+    if (SUCCEED(rc)) {
+        bool fresh = USED_MEMORY;
+        rc = mOps->getMemStatus(getType(), clientFd, &fresh);
+        if (SUCCEED(rc)) {
+            if (fresh == USED_MEMORY) {
+                LOGE(mModule, "Memory already enqueued.");
+                rc = NOT_REQUIRED;
+            }
+        }
+    }
+
+    if (SUCCEED(rc)) {
+        rc = mOps->setMemStatus(getType(), clientFd, USED_MEMORY);
+        if (!SUCCEED(rc)) {
+            LOGE(mModule, "Failed to set memory status, %d", rc);
         }
     }
 
@@ -524,205 +605,6 @@ int32_t RequestHandler::getExpectedBufferSize()
     return getHeaderSize() + getDataSize();
 }
 
-int32_t RequestHandler::processClientUpdate()
-{
-    int32_t rc = NO_ERROR;
-    MemoryInfo *mem = NULL;
-    bool locked = false;
-
-    if (SUCCEED(rc)) {
-        rc = getFirstFreshMemLock(&mem);
-        if (!SUCCEED(rc)) {
-            LOGE(mModule, "Failed to find latest memory, %d", rc);
-        } else if (ISNULL(mem)) {
-            LOGI(mModule, "No latest memory found, skip...");
-            rc = NO_MEMORY;
-        } else {
-            locked = true;
-        }
-    }
-
-    if (SUCCEED(rc)) {
-        rc = copyToUserBuf(mem);
-        if (!SUCCEED(rc)) {
-            LOGE(mModule, "Failed to copy memory to user buf");
-        }
-    }
-
-    if (SUCCEED(rc) || !SUCCEED(rc)) {
-        if (locked) {
-            rc = mOps->unlockMemory(mType, mem->clientfd);
-            if (!SUCCEED(rc)) {
-                LOGE(mModule, "Failed to unlock memory %d, %d",
-                    mem->clientfd, rc);
-            }
-        }
-    }
-
-    return RETURNIGNORE(rc, NO_MEMORY);
-}
-
-int32_t RequestHandler::getFirstFreshMemLock(
-    RequestHandler::MemoryInfo **mem)
-{
-    int32_t rc = NO_ERROR;
-    int32_t fd = -1;
-    int32_t index = -1;
-
-    if (ISNULL(mMem)) {
-        LOGD(mModule, "Memory not allocated.");
-        rc = NOT_INITED;
-    }
-
-    if (SUCCEED(rc)) {
-        rc = mOps->getFirstFreshMemLock(mType, &fd);
-        if (!SUCCEED(rc)) {
-            LOGE(mModule, "Failed to get first fresh memory, %d", rc);
-        }
-        if (fd == -1) {
-            LOGE(mModule, "Invalid fd %d", fd);
-            rc = UNKNOWN_ERROR;
-        }
-    }
-
-    if (SUCCEED(rc)) {
-        for (uint32_t i = 0; i < mMemNum; i++) {
-            if (mMem[i].clientfd == fd) {
-                index = i;
-                break;
-            }
-        }
-    }
-
-    if (index == -1) {
-        LOGD(mModule, "Failed to find available memory from client");
-        *mem = NULL;
-    } else {
-        *mem = &mMem[index];
-    }
-
-    return rc;
-}
-
-int32_t RequestHandler::copyToUserBuf(
-    RequestHandler::MemoryInfo *mem, void *userbuf, int32_t usersize)
-{
-    int32_t rc = NO_ERROR;
-    void *buf = userbuf;
-    int32_t datSize = 0;
-    int32_t bufSize = usersize;
-    int32_t privateSize = 0;
-
-    if (ISNULL(mem)) {
-        LOGE(mModule, "Memory not available.");
-        rc = PARAM_INVALID;
-    }
-
-    if (SUCCEED(rc)) {
-        datSize = getExpectedBufferSize();
-        if (datSize == 0) {
-            LOGE(mModule, "Invalid data size");
-            rc = UNKNOWN_ERROR;
-        }
-    }
-
-    if (SUCCEED(rc)) {
-        if (ISNULL(buf)) {
-            rc = dequeue(&buf, &bufSize);
-            if (!SUCCEED(rc)) {
-                LOGE(mModule, "Failed to dequeue user buf, %d", rc);
-            }
-        }
-    }
-
-    if (SUCCEED(rc)) {
-        if (ISNULL(buf) || bufSize == 0) {
-            LOGI(mModule, "No available user buf, frame abandon...");
-            rc = NO_MEMORY;
-        }
-    }
-
-    if (SUCCEED(rc)) {
-        if (datSize > bufSize) {
-            LOGE(mModule, "Data size bigger than user buffer size");
-            rc = UNKNOWN_ERROR;
-        }
-        if (datSize > mem->size) {
-            LOGE(mModule, "Data size bigger than client buffer size");
-            rc = UNKNOWN_ERROR;
-        }
-    }
-
-    if (SUCCEED(rc)) {
-        int32_t copied = 0;
-        rc = copyHeader(buf, mem->buf, &copied);
-        if (!SUCCEED(rc)) {
-            LOGE(mModule, "Failed to copy private data");
-        }
-    }
-
-    if (SUCCEED(rc)) {
-        privateSize = getHeaderSize();
-        if (privateSize == 0) {
-            LOGD(mModule, "No private data");
-        }
-    }
-
-    if (SUCCEED(rc)) {
-        copyData((int8_t *)buf + privateSize,
-            (int8_t *)mem->buf + privateSize,
-            getDataSize() < mem->size ?
-                getDataSize() : mem->size);
-    }
-
-    if (SUCCEED(rc)) {
-        rc = mOps->setMemStatus(mType, mem->clientfd, false);
-        if (!SUCCEED(rc)) {
-            LOGE(mModule, "Failed to update memory status, %d",
-                mem->clientfd, rc);
-        }
-    }
-
-    return rc;
-}
-
-int32_t RequestHandler::copyData(void *dst, void *src, int32_t len)
-{
-    memcpy(dst, src, len);
-    return NO_ERROR;
-}
-
-int32_t RequestHandler::runOnceFunc(void * /*in*/, void * /*out*/)
-{
-    int32_t rc = NO_ERROR;
-    Semaphore *sem = NULL;
-
-    if (SUCCEED(rc)) {
-        rc = mOps->waitClientSem(mType, &sem);
-        if (!SUCCEED(rc) || ISNULL(sem)) {
-            LOGE(mModule, "Failed to get client semaphore %p, %d", sem, rc);
-            rc = UNKNOWN_ERROR;
-        }
-    }
-
-    if (SUCCEED(rc)) {
-        do {
-            sem->wait();
-
-            if (mAbortOnce) {
-                break;
-            }
-
-            rc = processClientUpdate();
-            if (!SUCCEED(rc)) {
-                LOGE(mModule, "Failed to process client update, %d", rc);
-            }
-        } while (true);
-    }
-
-    return rc;
-}
-
 int32_t RequestHandler::onOnceFuncFinished(int32_t /*rc*/)
 {
     // will be here when request handler been destructed
@@ -732,22 +614,17 @@ int32_t RequestHandler::onOnceFuncFinished(int32_t /*rc*/)
 int32_t RequestHandler::abortOnceFunc()
 {
     int32_t rc = NO_ERROR;
-    Semaphore *sem = NULL;
 
     if (SUCCEED(rc)) {
-        rc = mOps->waitClientSem(mType, &sem);
-        if (!SUCCEED(rc) || ISNULL(sem)) {
-            LOGE(mModule, "Failed to get client semaphore %p, %d", sem, rc);
-            rc = UNKNOWN_ERROR;
+        if (mRunOnce.isRuning()) {
+            rc = mSSSM.cancelWaitMsg();
+            if (!SUCCEED(rc)) {
+                LOGE(mModule, "Failed to cancel waitting msg, %d");
+            }
         }
     }
 
-    if (SUCCEED(rc)) {
-        mAbortOnce = true;
-        sem->signal();
-    }
-
-    return NO_ERROR;
+    return rc;
 }
 
 int32_t RequestHandler::RunOnce::run(RunOnceFunc *func, void *in, void *out)

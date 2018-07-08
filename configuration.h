@@ -19,8 +19,9 @@ namespace sirius {
 
 #define SOCKET_CLIENT_CONNECT_TYPE    "Request type"
 #define SOCKET_SERVER_SHARE_STR       "Mem share, type"
-#define SOCKET_CLIENT_REPLY_SHARE_STR "OK."
+#define SOCKET_CLIENT_REPLY_SHARE_STR "Mem share, OK."
 #define SOCKET_CLIENT_REPLY_FD_STR    "Done, fd"
+#define SOCKET_SERVER_SHARE_DONE      "Mem share done."
 #define SOCKET_CLIENT_NOTIFIER_STR    "Ready:"
 #define SOCKET_EVENT_REQUEST_FORMAT   "EVT:"
 

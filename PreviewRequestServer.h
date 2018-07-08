@@ -12,7 +12,6 @@ class PreviewRequestServer :
 public:
     int32_t getHeaderSize() override;
     int32_t getDataSize() override;
-    int32_t copyHeader(void *dst, void *src, int32_t *size) override;
 
 public:
     PreviewRequestServer(HandlerOpsIntf *ops);

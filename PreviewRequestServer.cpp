@@ -14,14 +14,6 @@ int32_t PreviewRequestServer::getDataSize()
     return mHeader.previewW * mHeader.previewH * 3 / 2;
 }
 
-int32_t PreviewRequestServer::copyHeader(
-    void *dst, void *src, int32_t *size)
-{
-    *size = getHeaderSize();
-    memcpy(dst, src, *size);
-    return NO_ERROR;
-}
-
 PreviewRequestServer::PreviewRequestServer(HandlerOpsIntf *ops) :
     RequestHandler(ops,
         PREVIEW_NV21,

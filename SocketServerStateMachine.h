@@ -112,7 +112,8 @@ private:
     int32_t    mClientFd;
     status     mStatus;
     bool       mWaitingMsg;
-    int32_t    mCancelWait;
+    bool       mCancelConnect;
+    bool       mCancelMsg;
     ModuleType mModule;
     sp<ThreadPoolEx> mThreads;
 

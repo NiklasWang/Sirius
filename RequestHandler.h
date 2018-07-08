@@ -15,20 +15,11 @@ public:
     RequestType getType();
     const char *getName();
 
-    int32_t enqueue(void *buf, int32_t size);
-    int32_t dequeue(void **buf, int32_t *size);
-
-    int32_t wait();
+    int32_t enqueue(int32_t id);
     int32_t abort();
-
     int32_t getExpectedBufferSize();
     int32_t onClientReady();
     int32_t setSocketFd(int32_t fd);
-
-public:
-    int32_t runOnceFunc(void *in, void *out) override;
-    int32_t onOnceFuncFinished(int32_t rc) override;
-    int32_t abortOnceFunc() override;
 
 public:
     RequestHandler(HandlerOpsIntf *ops,
@@ -40,7 +31,11 @@ public:
 protected:
     virtual int32_t getHeaderSize() = 0;
     virtual int32_t getDataSize() = 0;
-    virtual int32_t copyHeader(void *dst, void *src, int32_t *size) = 0;
+
+private:
+    int32_t runOnceFunc(void *in, void *out) override;
+    int32_t onOnceFuncFinished(int32_t rc) override;
+    int32_t abortOnceFunc() override;
 
 private:
     int32_t allocMemAndShare();
@@ -48,27 +43,18 @@ private:
     int32_t releaseMem();
     int32_t shareSingleMem(int32_t fd);
     int32_t shareMem();
-    int32_t processClientUpdate();
-    int32_t copyData(void *dst, void *src, int32_t len);
+    int32_t onMemRefreshed(int32_t fd);
     int32_t recordMemoryPair(int32_t serverfd, int32_t clientfd);
-    int32_t convertToClientFd(char *msg, int32_t *clientfd);
+    int32_t convertToClientFd(char *msg, const char *prefix, int32_t *clientfd);
 
-    enum MemStatus {
-        MEM_STAT_USED,
-        MEM_STAT_FRESH,
-    };
-
+private:
     struct MemoryInfo {
+        int32_t id;
         void   *buf;
         int32_t size;
         int32_t serverfd;
         int32_t clientfd;
     };
-
-private:
-    int32_t getFirstFreshMemLock(MemoryInfo **mem);
-    int32_t copyToUserBuf(MemoryInfo *mem,
-        void *userbuf = NULL, int32_t usersize = 0);
 
     class RunOnce :
         public RunOnceThread {
@@ -87,9 +73,7 @@ private:
     bool            mMemShared;
     uint32_t        mMemNum;
     MemoryInfo     *mMem;
-    UserBufferMgr   mBufMgr;
     RunOnce        *mRunOnce;
-    bool            mAbortOnce;
     SocketServerStateMachine mSSSM;
 
 protected:

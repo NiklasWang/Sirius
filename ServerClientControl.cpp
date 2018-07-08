@@ -20,7 +20,8 @@ RequestType getType(RequestType type)
 
 ServerClientControl::ServerClientControl() :
     mModule(MODULE_SERVER_CLIENT_CONTROL),
-    mCtl(NULL)
+    mCtl(NULL),
+    mReady(false)
 {
 }
 
@@ -49,44 +50,6 @@ bool ServerClientControl::requested(RequestType type)
     }
 
     return result;
-}
-
-int32_t ServerClientControl::getFirstFreshMemLock(
-    RequestType type, int32_t *fd)
-{
-    int32_t rc = CHECK_MEM_AVAILABLE();
-    RequestType requestType = getType(type);
-    RequestMemory *mem = mCtl.request[requestType].mems;
-    int64_t ts = 2^63 - 1;
-    int32_t index = -1;
-    int32_t lastIndex = -1;
-
-    if (SUCCEED(rc)) {
-        for (int32_t i = 0; i < mCtl.request[requestType].memNum; i++) {
-            pthread_mutex_lock(&mem[i].l);
-            if (ts > mem[i].ts &&
-                mem[i].stat == MEMORY_STAT_FRESH) {
-                ts = mem[i].ts;
-                index = i;
-                if (lastIndex != -1) {
-                    pthread_mutex_unlock(&mem[lastIndex].l);
-                }
-                lastIndex = index;
-            } else {
-                pthread_mutex_unlock(&mem[i].l);
-            }
-        }
-    }
-
-    if (SUCCEED(rc)) {
-        if (index == -1) {
-            *fd = -1;
-        } else {
-            *fd = mCtl.request[requestType].mems[index].fd;
-        }
-    }
-
-    return rc;
 }
 
 int32_t ServerClientControl::getUsedMemLock(
@@ -158,6 +121,31 @@ int32_t ServerClientControl::setMemStatus(
     if (SUCCEED(rc)) {
         mem->stat = fresh ? MEMORY_STAT_FRESH : MEMORY_STAT_USED;
         mem->ts = currentUs();
+    }
+
+    return rc;
+}
+
+int32_t ServerClientControl::getMemStatus(RequestType type, int32_t fd, bool *fresh)
+{
+    int32_t rc = CHECK_MEM_AVAILABLE();
+    RequestType requestType = getType(type);
+    RequestMemory *mem = NULL;
+
+    *fresh = USED_MEMORY;
+    if (SUCCEED(rc)) {
+        rc = findClientMemory(requestType, fd, &mem);
+        if (!SUCCEED(rc)) {
+            LOGE(mModule, "Failed to find client memory, %d", rc);
+        }
+        if (ISNULL(mem)) {
+            LOGE(mModule, "Not found client memory fd %d, %d", fd, rc);
+            rc = NOT_FOUND;
+        }
+    }
+
+    if (SUCCEED(rc)) {
+        *fresh = mem->stat == MEMORY_STAT_FRESH ? FRESH_MEMORY : USED_MEMORY;
     }
 
     return rc;
@@ -305,7 +293,16 @@ int32_t ServerClientControl::setMemory(void *mem, int32_t size, bool init)
         }
     }
 
+    if (SUCCEED(rc)) {
+        mReady = true;
+    }
+
     return rc;
+}
+
+bool ServerClientControl::ready()
+{
+    return mReady;
 }
 
 int64_t ServerClientControl::currentUs()

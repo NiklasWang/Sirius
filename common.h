@@ -68,6 +68,17 @@ enum err_raeson {
         } \
     } while(0)
 
+#define COMPARE_SAME_STRING(LHS, RHS) \
+        ({ \
+            bool _result = true; \
+            if (NOTNULL(LHS) && NOTNULL(RHS)) { \
+                _result &= !strcmp(LHS, RHS); \
+            } else if (ISNULL(LHS) && ISNULL(RHS)) { \
+            } else { \
+                _result = false; \
+            } \
+            _result; \
+        })
 
 #ifndef offsetof
 #define offsetof(TYPE, MEMBER) ((int32_t) &((TYPE *)0)->MEMBER)

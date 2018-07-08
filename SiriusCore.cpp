@@ -96,7 +96,7 @@ int32_t SiriusCore::runOnceFunc(void * /*in*/, void * /*out*/)
         }
     }
 
-    if (SUCCEED(rc)) { // rc is TIMEDOUT if cancelled to wait for connection
+    if (SUCCEED(rc)) {
         mSocketMsg[0] = '\0';
         rc = mSS.receiveMsg(mSocketMsg, sizeof(mSocketMsg));
         if (!SUCCEED(rc)) {
@@ -199,9 +199,9 @@ int32_t SiriusCore::convertToRequestType(
     int32_t rc = NO_ERROR;
     int32_t value = atoi(msg + strlen(SOCKET_CLIENT_CONNECT_TYPE) + 1);
 
-    *type = REQUEST_TYPE_MAX_INVALID;
     if (value < 0) {
-        LOGE(mModule, "Invalid msg, \"%s\"", msg);
+        *type = REQUEST_TYPE_MAX_INVALID;
+        LOGE(mModule, "Invalid msg, %s", msg);
         rc = PARAM_INVALID;
     } else {
         *type = static_cast<RequestType>(value);
@@ -217,7 +217,7 @@ int32_t SiriusCore::enableCachedRequests()
     for (int32_t i = 0; i < REQUEST_TYPE_MAX_INVALID; i++) {
         if (mCachedRequest[i]) {
             LOGD(mModule, "Enable cached request %d", i);
-            rc = request(static_cast<RequestType>(i));
+            rc = request(gRequestTypeMap[i]);
             if (!SUCCEED(rc)) {
                 LOGE(mModule, "Failed to create cached request %d", rc);
             } else {
@@ -273,8 +273,9 @@ int32_t SiriusCore::destruct()
 
     if (SUCCEED(rc)) {
         for (int32_t i = 0; i < REQUEST_TYPE_MAX_INVALID; i++) {
-            rc = mCtl->setRequest(gRequestTypeMap[i], false);
+            rc = mCtl->setRequest(gRequestTypeMap[i], DISABLE_REQUEST);
             if (!SUCCEED(rc)) {
+                final |= rc;
                 LOGE(mModule, "Failed to cancel request %d", i);
             }
         }
@@ -471,24 +472,28 @@ int32_t SiriusCore::request(RequestType type)
     }
 
     if (SUCCEED(rc)) {
-        if (!clientReady()) {
-            if (!clientReady()) {
-                mCachedRequest[type] = true;
-                LOGD(mModule, "Client not ready, request %d cached.", type);
-            }
+        if (!mCtl.ready()) {
+            mCachedRequest[type] = true;
+            LOGD(mModule, "Client not ready, request %d cached.", type);
+            rc = JUMP_DONE;
         }
     }
 
     if (SUCCEED(rc)) {
-        if (clientReady()) {
-            rc = createRequestHandler(type, true);
-            if (!SUCCEED(rc)) {
-                LOGE(mModule, "Failed to create request handler.");
-            }
+        rc = createRequestHandler(type);
+        if (!SUCCEED(rc)) {
+            LOGE(mModule, "Failed to create request %d", type);
         }
     }
 
-    return rc;
+    if (SUCCEED(rc)) {
+        rc = mCtl.setRequest(type, ENABLE_REQUEST);
+        if (!SUCCEED(rc)) {
+            LOGE(mModule, "Failed to enable request %d", rc);
+        }
+    }
+
+    return RETURNIGNORE(rc, JUMP_DONE);
 }
 
 int32_t SiriusCore::abortRequest(RequestType type)
@@ -749,11 +754,6 @@ int32_t SiriusCore::releaseIon(void *buf)
     return mIon.release(buf);
 }
 
-int32_t SiriusCore::getFirstFreshMemLock(RequestType type, int32_t *fd)
-{
-    return mCtl.getFirstFreshMemLock(type, fd);
-}
-
 int32_t SiriusCore::getUsedMemLock(RequestType type, int32_t *fd)
 {
     return mCtl.getUsedMemLock(type, fd);
@@ -762,6 +762,11 @@ int32_t SiriusCore::getUsedMemLock(RequestType type, int32_t *fd)
 int32_t SiriusCore::setMemStatus(RequestType type, int32_t fd, bool fresh)
 {
     return mCtl.setMemStatus(type, fd, fresh);
+}
+
+int32_t SiriusCore::getMemStatus(RequestType type, int32_t fd, bool *fresh)
+{
+    return mCtl.getMemStatus(type, fd, fresh);
 }
 
 int32_t SiriusCore::setMemSize(RequestType type, int32_t size)
@@ -774,19 +779,9 @@ int32_t SiriusCore::getMemSize(RequestType type, int32_t *size)
     return mCtl.getMemSize(type, size);
 }
 
-int32_t SiriusCore::lockMemory(RequestType type, int32_t fd)
-{
-    return mCtl.lockMemory(type, fd);
-}
-
 int32_t SiriusCore::addMemory(RequestType type, int32_t clientfd, bool fresh)
 {
     return mCtl.addMemory(type, clientfd, fresh);
-}
-
-int32_t SiriusCore::unlockMemory(RequestType type, int32_t fd)
-{
-    return mCtl.unlockMemory(type, fd);
 }
 
 int32_t SiriusCore::setRequestedMark(RequestType type, bool enable)
