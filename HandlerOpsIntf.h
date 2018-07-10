@@ -18,7 +18,6 @@ public:
     virtual int32_t sendCallback(RequestType type, int32_t id, void *header, uint8_t *dat) = 0;
     virtual int32_t allocateIon(void **buf, int32_t len, int32_t *fd) = 0;
     virtual int32_t releaseIon(void *buf) = 0;
-    virtual int32_t getUsedMemLock(RequestType type, int32_t *fd) = 0;
     virtual int32_t setMemStatus(RequestType type, int32_t fd, bool fresh = USED_MEMORY) = 0;
     virtual int32_t getMemStatus(RequestType type, int32_t fd, bool *fresh) = 0;
     virtual int32_t setMemSize(RequestType type, int32_t size) = 0;

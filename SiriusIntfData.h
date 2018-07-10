@@ -44,6 +44,11 @@ struct PictureBayerHeader {
     Pattern pattern;
 };
 
+struct CustomDataHeader {
+    int64_t size;
+    int64_t ts;
+};
+
 struct Header {
     int32_t previewW;
     int32_t previewH;

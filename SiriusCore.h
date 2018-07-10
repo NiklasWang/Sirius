@@ -25,18 +25,13 @@ class SiriusCore :
 public:
     int32_t request(RequestType type) override;
     int32_t abort(RequestType type) override;
-    int32_t enqueueBuf(RequestType type, void *buf, int32_t size) override;
-    int32_t dequeueBuf(RequestType type, void *buf = ALL_BUFFERS) override;
-    int32_t setCallback(callback_func func) override;
+    int32_t enqueue(RequestType type, int32_t id) override;
+    int32_t setCallback(RequestCbFunc requestCb, EventCbFunc eventCb) override;
 
 public:
     int32_t sendCallback(RequestType type, void *data) override;
-    int32_t sendClientFd(int32_t fd) override;
-    int32_t sendClientMsg(const char *data, int32_t len) override;
-    int32_t receiveClientMsg(char *data, int32_t maxlen) override;
     int32_t allocateIon(void **buf, int32_t len, int32_t *fd) override;
     int32_t releaseIon(void *buf) override;
-    int32_t getUsedMemLock(RequestType type, int32_t *fd) override;
     int32_t setMemStatus(RequestType type, int32_t fd, bool fresh = false) override;
     int32_t getMemStatus(RequestType type, int32_t fd, bool *fresh) override;
     int32_t setMemSize(RequestType type, int32_t size) override;

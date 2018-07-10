@@ -77,7 +77,9 @@ int32_t SiriusCore::runOnceFunc(void * /*in*/, void * /*out*/)
 
     if (SUCCEED(rc)) {
         rc = mSS.startServer();
-        if (!SUCCEED(rc)) {
+        if (rc == USER_ABORTED) {
+            LOGI(mModule, "Cancelled to wait connection, exit task.");
+        } else if (!SUCCEED(rc)) {
             LOGE(mModule, "Failed to start socket server");
         }
     }
@@ -142,53 +144,70 @@ int32_t SiriusCore::runOnceFunc(void * /*in*/, void * /*out*/)
         }
     }
 
-    do {
-        int32_t clientfd = -1;
-        RequestType type = REQUEST_TYPE_MAX_INVALID;
-        RESETRESULT(rc);
+    if (SUCCEED(rc)) {
+        do {
+            int32_t clientfd = -1;
+            RequestType type = REQUEST_TYPE_MAX_INVALID;
+            RESETRESULT(rc);
 
-        if (SUCCEED(rc)) {
-            rc = mSS.waitForConnect(&clientfd);
-            if (!SUCCEED(rc)) {
-                LOGE(mModule, "Failed to wait for client connection");
+            if (SUCCEED(rc)) {
+                rc = mSS.waitForConnect(&clientfd);
+                if (!SUCCEED(rc)) {
+                    LOGE(mModule, "Failed to wait for client connection");
+                }
+                if (rc == USER_ABORTED) {
+                    LOGI(mModule, "Stop wait connect, aborted.");
+                    break;
+                }
             }
-            if (rc == USER_ABORTED) {
-                LOGI(mModule, "Stop wait connect, aborted.");
-                break;
-            }
-        }
 
-        if (SUCCEED(rc)) {
-            mSocketMsg[0] = '\0';
-            rc = mSS.receiveMsg(clientfd, mSocketMsg, sizeof(mSocketMsg));
-            if (!SUCCEED(rc)) {
-                LOGE(mModule, "Failed to receive msg, %d", rc);
+            if (SUCCEED(rc)) {
+                mSocketMsg[0] = '\0';
+                rc = mSS.receiveMsg(clientfd, mSocketMsg, sizeof(mSocketMsg));
+                if (!SUCCEED(rc)) {
+                    LOGE(mModule, "Failed to receive msg, %d", rc);
+                }
             }
-        }
 
-        if (SUCCEED(rc)) {
-            rc = convertToRequestType(mSocketMsg, &type);
-            if (!SUCCEED(rc) || type == REQUEST_TYPE_MAX_INVALID) {
-                LOGE(mModule, "Invalid socket msg, %s", mSocketMsg);
+            if (SUCCEED(rc)) {
+                rc = convertToRequestType(mSocketMsg, &type);
+                if (!SUCCEED(rc) || type == REQUEST_TYPE_MAX_INVALID) {
+                    LOGE(mModule, "Invalid socket msg, %s", mSocketMsg);
+                }
             }
-        }
 
-        if (SUCCEED(rc)) {
-            rc = mRequests[type]->setSocketFd(clientfd);
-            if (!SUCCEED(rc)) {
-                LOGE(mModule, "Failed to set socket fd %d to %s",
-                    clientfd, mRequests[type]->getName());
+            if (SUCCEED(rc)) {
+                if (ISNULL(mRequests[type])) {
+                    LOGE(mModule, "Request not created, should't be here.");
+                    rc = BAD_PROTOCAL;
+                }
             }
-        }
-    
-        if (SUCCEED(rc)) {
-            rc = mRequests[type]->onClientReady();
-            if (!SUCCEED(rc)) {
-                LOGE(mModule, "Failed to notify client connected to %s",
-                    rc, mRequests[type]->getName());
+
+            if (SUCCEED(rc)) {
+                bool requested = mCtl.requested(type);
+                if (!requested) {
+                    LOGE(mModule, "Request not requested, shouldn't be here");
+                    rc = BAD_PROTOCAL;
+                }
             }
-        }
-    } while(rc != USER_ABORTED);
+
+            if (SUCCEED(rc)) {
+                rc = mRequests[type]->setSocketFd(clientfd);
+                if (!SUCCEED(rc)) {
+                    LOGE(mModule, "Failed to set socket fd %d to %s",
+                        clientfd, mRequests[type]->getName());
+                }
+            }
+
+            if (SUCCEED(rc)) {
+                rc = mRequests[type]->onClientReady();
+                if (!SUCCEED(rc)) {
+                    LOGE(mModule, "Failed to notify client connected to %s",
+                        rc, mRequests[type]->getName());
+                }
+            }
+        } while(rc != USER_ABORTED);
+   }
 
     return rc;
 }
@@ -204,7 +223,7 @@ int32_t SiriusCore::convertToRequestType(
         LOGE(mModule, "Invalid msg, %s", msg);
         rc = PARAM_INVALID;
     } else {
-        *type = static_cast<RequestType>(value);
+        *type = gRequestTypeMap[value];
     }
 
     return rc;
@@ -280,7 +299,7 @@ int32_t SiriusCore::destruct()
             }
         }
     }
-    
+
     if (SUCCEED(rc)) {
         for (int32_t i = 0; i < REQUEST_TYPE_MAX_INVALID; i++) {
             if (NOTNULL(mRequests[i])) {
@@ -496,7 +515,7 @@ int32_t SiriusCore::request(RequestType type)
     return RETURNIGNORE(rc, JUMP_DONE);
 }
 
-int32_t SiriusCore::abortRequest(RequestType type)
+int32_t SiriusCore::abort(RequestType type)
 {
     int32_t rc = NO_ERROR;
     RequestHandler *requestHandler = NULL;
@@ -594,33 +613,17 @@ bool SiriusCore::requested(RequestType type)
         if (type == REQUEST_TYPE_MAX_INVALID) {
             LOGE(mModule, "Invalid request type %d", type);
             rc = PARAM_INVALID;
-        }
-    }
-
-    if (SUCCEED(rc)) {
-        if (NOTNULL(mRequests[type])) {
-            if (type == mRequests[type]->getType()) {
-                result = true;
-            } else {
-                LOGE(mModule, "Shouldn't be here, expected %d actual %d",
-                    type, mRequests[type]->getType());
-            }
+        } else {
+            result = mCtl.requested(type);
         }
     }
 
     return result;
 }
 
-int32_t SiriusCore::enqueueBuf(RequestType type, void *buf, int32_t size)
+int32_t SiriusCore::enqueue(RequestType type, int32_t id)
 {
     int32_t rc = NO_ERROR;
-
-    if (SUCCEED(rc)) {
-        if (ISNULL(buf) || NEGITIVE_NUM(size) || ISZERO(size)) {
-            LOGE(mModule, "Invalid buffer %p %d", buf, size);
-            rc = PARAM_INVALID;
-        }
-    }
 
     if (SUCCEED(rc)) {
         type = getRequestType(type);
@@ -631,117 +634,39 @@ int32_t SiriusCore::enqueueBuf(RequestType type, void *buf, int32_t size)
     }
 
     if (SUCCEED(rc)) {
-        if (!requested(type)) {
-            LOGI(mModule, "%d not requested, create handler first", type);
-            rc = createRequestHandler(type, false);
-            if (!SUCCEED(rc)) {
-                LOGE(mModule, "Failed to create request handler, %d", rc);
-            }
+        if (ISNULL(mRequests[type])) {
+            LOGE(mModule, "Request not created, should't be here.");
+            rc = NOT_REQUIRED;
         }
     }
 
     if (SUCCEED(rc)) {
-        rc = mRequests[type]->enqueue(buf, size);
+        bool requested = mCtl.requested(type);
+        if (!requested) {
+            LOGE(mModule, "Request not requested, shouldn't be here");
+            rc = NOT_REQUIRED;
+        }
+    }
+
+    if (SUCCEED(rc)) {
+        rc = mRequests[type]->enqueue(id);
         if (!SUCCEED(rc)) {
-            LOGE(mModule, "Failed to enqueue user buffer %d bytes"
-                "to request handler, %d", size, rc);
+            LOGE(mModule, "Failed to enqueue %d to %s", id,
+                mRequests[type]->getName());
         }
     }
 
     return rc;
 }
 
-int32_t SiriusCore::dequeueBuf(RequestType type, void *buf)
+int32_t SiriusCore::setCallback(RequestCbFunc requestCb, EventCbFunc eventCb)
 {
-    int32_t rc = NO_ERROR;
-    void *addr = NULL;
-    int32_t size = 0;
-
-    if (SUCCEED(rc)) {
-        if (!requested(type)) {
-            LOGI(mModule, "%d not requested", type);
-            rc = NOT_INITED;
-        }
-    }
-
-    if (SUCCEED(rc)) {
-        rc = mRequests[type]->dequeue(&addr, &size);
-        if (!SUCCEED(rc)) {
-            LOGE(mModule, "Failed to dequeue user buffer, %d", rc);
-        }
-    }
-
-    if (SUCCEED(rc)) {
-        void *first = addr;
-        while (addr != NULL) {
-            if (buf == addr) {
-                // Found matched buf
-                break;
-            }
-
-            if (buf != ALL_BUFFERS) {
-                // Insert to tail, and dequeue from head
-                rc = enqueueBuf(type, addr, size);
-                if (!SUCCEED(rc)) {
-                    LOGE(mModule, "Failed to enqueue again, %d", rc);
-                    rc = NO_ERROR;
-                }
-            }
-
-            if (addr == first) {
-                // Not found in buffer loop
-                rc = NOT_FOUND;
-                break;
-            }
-
-            if (SUCCEED(rc)) {
-                rc = mRequests[type]->dequeue(&addr, &size);
-                if (!SUCCEED(rc)) {
-                    LOGE(mModule, "Failed to dequeue user buffer, %d", rc);
-                }
-            }
-        }
-    }
-
-    return rc;
-}
-
-int32_t SiriusCore::setCallback(callback_func func)
-{
-    return mCb.setCb(func);
+    return mCb.setCb(requestCb);
 }
 
 int32_t SiriusCore::sendCallback(RequestType type, void *data)
 {
     return mCb.send(type, data);
-}
-
-#define CHECK_CLIENT_STATUS() \
-    ({ \
-        int32_t __rc = NO_ERROR; \
-        if (!clientReady()) { \
-            LOGD(mModule, "Client not connected yet"); \
-            __rc = NOT_READY; \
-        } \
-        __rc; \
-    })
-
-int32_t SiriusCore::sendClientFd(int32_t fd)
-{
-    int32_t rc = CHECK_CLIENT_STATUS();
-    return SUCCEED(rc) ? mSS.sendFd(fd) : rc;
-}
-
-int32_t SiriusCore::sendClientMsg(const char *data, int32_t len)
-{
-    int32_t rc = CHECK_CLIENT_STATUS();
-    return SUCCEED(rc) ? mSS.sendMsg(data, len) : rc;
-}
-
-int32_t SiriusCore::receiveClientMsg(char *data, int32_t maxlen)
-{
-    int32_t rc = CHECK_CLIENT_STATUS();
-    return SUCCEED(rc) ? mSS.receiveMsg(data, maxlen) : rc;
 }
 
 int32_t SiriusCore::allocateIon(void **buf, int32_t len, int32_t *fd)
@@ -752,11 +677,6 @@ int32_t SiriusCore::allocateIon(void **buf, int32_t len, int32_t *fd)
 int32_t SiriusCore::releaseIon(void *buf)
 {
     return mIon.release(buf);
-}
-
-int32_t SiriusCore::getUsedMemLock(RequestType type, int32_t *fd)
-{
-    return mCtl.getUsedMemLock(type, fd);
 }
 
 int32_t SiriusCore::setMemStatus(RequestType type, int32_t fd, bool fresh)

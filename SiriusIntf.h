@@ -10,7 +10,7 @@ class SiriusIntf {
 public:
     virtual int32_t request(RequestType type) = 0;
     virtual int32_t abort(RequestType type) = 0;
-    virtual int32_t enqueueBuf(RequestType type, int32_t id) = 0;
+    virtual int32_t enqueue(RequestType type, int32_t id) = 0;
     virtual int32_t setCallback(RequestCbFunc requestCb, EventCbFunc eventCb) = 0;
 
 public:

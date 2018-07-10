@@ -31,6 +31,7 @@ enum err_raeson {
     ALREADY_EXISTS,
     NOT_INITED,
     NOT_REQUIRED,
+    BAD_PROTOCAL,
     USER_ABORTED,
     JUMP_DONE,
     UNKNOWN_ERROR,
