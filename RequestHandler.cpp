@@ -521,7 +521,7 @@ int32_t RequestHandler::onMemRefreshed(int32_t fd)
     }
 
     if (SUCCEED(rc)) {
-        rc = mOps->sendCallback(getType(), id, head, dat);
+        rc = mOps->send(getType(), id, head, dat);
         if (!SUCCEED(rc)) {
             LOGE(mModule, "Failed to send callback, %d", rc);
         }

@@ -134,6 +134,8 @@ int32_t SiriusCore::runOnceFunc(void * /*in*/, void * /*out*/)
             mSocketMsg[sizeof(mSocketMsg) - 1] = '\0';
             LOGE(mModule, "Unknown msg received, \"%s\"", mSocketMsg);
             rc = NOT_READY;
+        } else {
+            mClientReady = true;
         }
     }
 
@@ -245,7 +247,6 @@ int32_t SiriusCore::enableCachedRequests()
         }
     }
 
-
     return rc;
 }
 
@@ -282,21 +283,21 @@ int32_t SiriusCore::destruct()
     }
 
     if (SUCCEED(rc)) {
-        rc = abortOnceFunc();
-        if (!SUCCEED(rc)) {
-            final |= rc;
-            LOGE(mModule, "Failed to abort run once thread");
-            rc = NO_ERROR;
-        }
-    }
-
-    if (SUCCEED(rc)) {
         for (int32_t i = 0; i < REQUEST_TYPE_MAX_INVALID; i++) {
             rc = mCtl->setRequest(gRequestTypeMap[i], DISABLE_REQUEST);
             if (!SUCCEED(rc)) {
                 final |= rc;
                 LOGE(mModule, "Failed to cancel request %d", i);
             }
+        }
+    }
+
+    if (SUCCEED(rc)) {
+        rc = abortOnceFunc();
+        if (!SUCCEED(rc)) {
+            final |= rc;
+            LOGE(mModule, "Failed to abort run once thread");
+            rc = NO_ERROR;
         }
     }
 
@@ -391,11 +392,12 @@ int32_t SiriusCore::destruct()
 
 RequestType getRequestType(RequestType type)
 {
-    return (type < 0 || type > REQUEST_TYPE_MAX_INVALID) ?
+    return (type < 0 ||
+        type > REQUEST_TYPE_MAX_INVALID) ?
         REQUEST_TYPE_MAX_INVALID : type;
 }
 
-int32_t SiriusCore::createRequestHandler(RequestType type, bool wait)
+int32_t SiriusCore::createRequestHandler(RequestType type)
 {
     int32_t rc = NO_ERROR;
     RequestHandler *requestHandler = NULL;
@@ -409,28 +411,7 @@ int32_t SiriusCore::createRequestHandler(RequestType type, bool wait)
     }
 
     if (SUCCEED(rc)) {
-        if (type == EXTENDED_EVENT && ISNULL(mEvtSvr)) {
-            mEvtSvr = new EventRequestServer(this, mServerSocket);
-            if (ISNULL(mEvtSvr)) {
-                LOGE(mModule, "No memory to new EventRequestServer");
-                rc = NO_MEMORY;
-            }
-        }
-    }
-
-    if (SUCCEED(rc)) {
-        if (type == EXTENDED_EVENT) {
-            rc = mEvtSvr->construct();
-            if (!SUCCEED(rc)) {
-                LOGE(mModule, "Failed to construct evt server");
-            } else {
-                rc = JUMP_DONE;
-            }
-        }
-    }
-
-    if (SUCCEED(rc)) {
-        requestHandler = createRequestHandler(type);
+        requestHandler = createHandler(type);
         if (ISNULL(requestHandler)) {
             LOGE(mModule, "Failed to create request handler");
             rc = NO_MEMORY;
@@ -441,41 +422,27 @@ int32_t SiriusCore::createRequestHandler(RequestType type, bool wait)
         rc = requestHandler->construct();
         if (!SUCCEED(rc)) {
             LOGE(mModule, "Failed to const request handler, %d", rc);
+        } else {
+            mRequests[type] = requestHandler;
         }
     }
 
     if (SUCCEED(rc)) {
-        mRequests[type] = requestHandler;
-    }
-
-    if (SUCCEEDIGNORE(rc, ALREADY_EXISTS)) {
-        if (wait) {
-            rc = mRequests[type]->wait();
-            if (!SUCCEED(rc)) {
-                LOGE(mModule, "Failed to enter wait status, %d", rc);
-            }
-        }
-    }
-
-    if (SUCCEEDIGNORE(rc, ALREADY_EXISTS)) {
-        if (wait) {
-            rc = setRequestedMark(type, true);
-            if (!SUCCEED(rc)) {
-                LOGE(mModule, "Failed to set enable request %d "
-                    "for client, %d", type, rc);
-            }
+        rc = setRequestedMark(type, ENABLE_REQUEST);
+        if (!SUCCEED(rc)) {
+            LOGE(mModule, "Failed to set enable request %d "
+                "for client, %d", type, rc);
         }
     }
 
     if (!SUCCEED(rc)) {
         if (NOTNULL(requestHandler)) {
-            delete requestHandler;
-            requestHandler = NULL;
             mRequests[type] = NULL;
+            SECURE_DELETE(requestHandler);
         }
     }
 
-    return RETURNIGNORE(rc, JUMP_DONE);
+    return rc;
 }
 
 int32_t SiriusCore::request(RequestType type)
@@ -491,7 +458,7 @@ int32_t SiriusCore::request(RequestType type)
     }
 
     if (SUCCEED(rc)) {
-        if (!mCtl.ready()) {
+        if (!mClientReady) {
             mCachedRequest[type] = true;
             LOGD(mModule, "Client not ready, request %d cached.", type);
             rc = JUMP_DONE;
@@ -528,22 +495,11 @@ int32_t SiriusCore::abort(RequestType type)
     }
 
     if (SUCCEED(rc)) {
-        rc = setRequestedMark(type, false);
+        rc = setRequestedMark(type, DISABLE_REQUEST);
         if (!SUCCEED(rc)) {
             LOGE(mModule, "Failed to set disable request %d "
                 "for client, %d", type, rc);
         }
-    }
-
-    if (SUCCEED(rc)) {
-        if (type == EXTENDED_EVENT && NOTNULL(mEvtSvr)) {
-            rc = mEvtSvr->destruct();
-            if (!SUCCEED(rc)) {
-                LOGE(mModule, "Failed to destruct evt server");
-            }
-            SECURE_DELETE(mEvtSvr);
-        }
-        rc = JUMP_DONE;
     }
 
     if (SUCCEED(rc)) {
@@ -564,43 +520,11 @@ int32_t SiriusCore::abort(RequestType type)
     }
 
     if (SUCCEED(rc)) {
-        delete requestHandler;
+        SECURE_DELETE(requestHandler);
         mRequests[type] = NULL;
     }
 
     return RETURNIGNORE(rc, JUMP_DONE);
-}
-
-int32_t SiriusCore::abort(RequestType type)
-{
-    int32_t rc = NO_ERROR;
-
-    if (SUCCEED(rc)) {
-        type = getRequestType(type);
-        if (type == REQUEST_TYPE_MAX_INVALID) {
-            LOGE(mModule, "Invalid request type %d", type);
-            rc = PARAM_INVALID;
-        }
-    }
-
-    if (SUCCEED(rc)) {
-        if (!clientReady()) {
-            if (!clientReady()) {
-                mCachedRequest[type] = false;
-            }
-        }
-    }
-
-    if (SUCCEED(rc)) {
-        if (clientReady()) {
-            rc = abortRequest(type);
-            if (!SUCCEED(rc)) {
-                LOGE(mModule, "Failed to abort request.");
-            }
-        }
-    }
-
-    return rc;
 }
 
 bool SiriusCore::requested(RequestType type)
@@ -661,12 +585,17 @@ int32_t SiriusCore::enqueue(RequestType type, int32_t id)
 
 int32_t SiriusCore::setCallback(RequestCbFunc requestCb, EventCbFunc eventCb)
 {
-    return mCb.setCb(requestCb);
+    return mCb.setCb(requestCb, eventCb);
 }
 
-int32_t SiriusCore::sendCallback(RequestType type, void *data)
+int32_t SiriusCore::send(RequestType type, int32_t id, void *head, void *dat)
 {
-    return mCb.send(type, data);
+    return mCb.send(type, id, head, dat);
+}
+
+int32_t SiriusCore::send(int32_t event, int32_t arg1, int32_t arg2)
+{
+    return mCb.send(event, arg1, arg2);
 }
 
 int32_t SiriusCore::allocateIon(void **buf, int32_t len, int32_t *fd)
@@ -718,6 +647,7 @@ SiriusCore:: SiriusCore() :
     mConstructed(false),
     mModule(MODULE_SIRIUS_CORE),
     mExit(false),
+    mClientReady(false),
     mCtlFd(-1),
     mCtlMem(NULL),
     mEvtSvr(NULL)
@@ -771,7 +701,7 @@ bool SiriusCore::RunOnce::isRuning()
 
 namespace sirius {
 
-RequestHandler *SiriusCore::createRequestHandler(RequestType type)
+RequestHandler *SiriusCore::createHandler(RequestType type)
 {
     RequestHandler *request = NULL;
 

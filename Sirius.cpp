@@ -57,22 +57,16 @@ int32_t Sirius::abort(RequestType type)
     return SUCCEED(rc) ? mImpl->abort(type) : rc;
 }
 
-int32_t Sirius::enqueueBuf(RequestType type, void *buf, int32_t size)
+int32_t Sirius::enqueueBuf(RequestType type, int32_t id)
 {
     int32_t rc = CONSTRUCT_IMPL_ONCE();
-    return SUCCEED(rc) ? mImpl->enqueueBuf(type, buf, size) : rc;
+    return SUCCEED(rc) ? mImpl->enqueueBuf(type, id) : rc;
 }
 
-int32_t Sirius::dequeueBuf(RequestType type, void *buf)
+int32_t Sirius::setCallback(RequestCbFunc requestCb, EventCbFunc eventCb)
 {
     int32_t rc = CONSTRUCT_IMPL_ONCE();
-    return SUCCEED(rc) ? mImpl->dequeueBuf(type, buf) : rc;
-}
-
-int32_t Sirius::setCallback(callback_func func)
-{
-    int32_t rc = CONSTRUCT_IMPL_ONCE();
-    return SUCCEED(rc) ? mImpl->setCallback(func) : rc;
+    return SUCCEED(rc) ? mImpl->setCallback(requestCb, eventCb) : rc;
 }
 
 Sirius::Sirius() :

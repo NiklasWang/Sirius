@@ -12,11 +12,12 @@ class ServerCallbackThread :
     public QueuedThread,
     public noncopyable {
 public:
-    int32_t send(RequestType type, void *buf);
-    int32_t setCb(callback_func func);
+    int32_t send(RequestType type, int32_t id, void *head, void *dat);
+    int32_t send(int32_t event, int32_t arg1, int32_t arg2);
+    int32_t setCb(RequestCbFunc requestCb, EventCbFunc eventCb);
 
 public:
-    ServerCallbackThread(callback_func func = 0);
+    ServerCallbackThread();
     virtual ~ServerCallbackThread();
 
 private:
@@ -29,11 +30,24 @@ public:
 
 private:
     struct Task {
-        uint32_t id;
+    public:
+        enum TaskType {
+            TASK_TYPE_DAT,
+            TASK_TYPE_EVT,
+        };
+
+    public:
+        TaskType type;
+        RequestType request;
+        int32_t  tid;
+        void    *head;
+        void    *dat;
+        int32_t  evt;
+        int32_t  arg1;
+        int32_t  arg2;
         SyncType sync;
         int32_t  rc;
-        RequestType type;
-        void    *buf;
+        int32_t  id;
         static uint32_t mCnt;
      public:
         Task(sync_type _sync = SYNC_TYPE);
@@ -43,7 +57,8 @@ private:
 private:
     bool          mConstructed;
     ModuleType    mModule;
-    callback_func mFunc;
+    RequestCbFunc mCbFunc;
+    EventCbFunc   mEvtCbFunc;
 };
 
 };

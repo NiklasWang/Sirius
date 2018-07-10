@@ -12,9 +12,8 @@ class Sirius :
 public:
     int32_t request(RequestType type);
     int32_t abort(RequestType type);
-    int32_t enqueueBuf(RequestType type, void *buf, int32_t size);
-    int32_t dequeueBuf(RequestType type, void *buf = ALL_BUFFERS);
-    int32_t setCallback(callback_func func);
+    int32_t enqueue(RequestType type, int32_t id);
+    int32_t setCallback(RequestCbFunc requestCb, EventCbFunc eventCb);
 
 public:
     Sirius();

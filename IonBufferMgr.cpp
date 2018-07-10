@@ -77,7 +77,7 @@ int32_t IonBufferMgr::allocate(void **buf, int32_t len, int32_t *fd)
         rc = allocate(&buffer, aligned);
         if (SUCCEED(rc)) {
             *buf = buffer.mPtr;
-            *fd = buffer.mFd;
+            *fd  = buffer.mFd;
             RWLock::AutoWLock l(mBufLock);
             mBuffers.push_back(buffer);
         }

@@ -95,8 +95,7 @@ int32_t SiriusImpl::destruct()
 const char * const SiriusImpl::TaskBase::kTaskString[] = {
     [SiriusImpl::TYPE_REQUEST]     = "request",
     [SiriusImpl::TYPE_ABORT]       = "abort",
-    [SiriusImpl::TYPE_ENQUEUE_BUF] = "enqueue buf",
-    [SiriusImpl::TYPE_DEQUEUE_BUF] = "dequeue buf",
+    [SiriusImpl::TYPE_ENQUEUE]     = "enqueue buf",
     [SiriusImpl::TYPE_SET_CB]      = "set callback",
     [SiriusImpl::TYPE_MAX_INVALID] = "max invalid",
 };
@@ -123,11 +122,8 @@ int32_t SiriusImpl::processTask(void *dat)
         case TYPE_ABORT: {
             rc = coreAbort(arg);
         } break;
-        case TYPE_ENQUEUE_BUF: {
-            rc = coreEnqueueBuf(arg);
-        } break;
-        case TYPE_DEQUEUE_BUF: {
-            rc = coreDequeueBuf(arg);
+        case TYPE_ENQUEUE: {
+            rc = coreEnqueue(arg);
         } break;
         case TYPE_SET_CB: {
             rc = coreSetCallback(arg);
@@ -205,11 +201,10 @@ int32_t SiriusImpl::pushToThread(TaskType type, void *value)
 
 const SiriusImpl::PushToThreadFunc
     SiriusImpl::gAddThreadTaskFunc[] = {
-    &SiriusImpl::pushToThread<RequestType,   SYNC_TYPE>, // TYPE_REQUEST
-    &SiriusImpl::pushToThread<RequestType,   SYNC_TYPE>, // TYPE_ABORT
-    &SiriusImpl::pushToThread<BufferInfo,    SYNC_TYPE>, // TYPE_ENQUEUE_BUF
-    &SiriusImpl::pushToThread<BufferInfo,    SYNC_TYPE>, // TYPE_DEQUEUE_BUF
-    &SiriusImpl::pushToThread<callback_func, SYNC_TYPE>, // TYPE_SET_CB
+    [SiriusImpl::TYPE_REQUEST] = &SiriusImpl::pushToThread<RequestType, SYNC_TYPE>,
+    [SiriusImpl::TYPE_ABORT]   = &SiriusImpl::pushToThread<RequestType, SYNC_TYPE>,
+    [SiriusImpl::TYPE_ENQUEUE] = &SiriusImpl::pushToThread<BufferInfo,  SYNC_TYPE>,
+    [SiriusImpl::TYPE_SET_CB]  = &SiriusImpl::pushToThread<CbInfo,      SYNC_TYPE>,
 };
 
 #define CONSTRUCT_IMPL() \
@@ -238,33 +233,25 @@ int32_t SiriusImpl::abort(RequestType type)
     return (this->*(gAddThreadTaskFunc[TYPE_ABORT]))(TYPE_ABORT, &type);
 }
 
-int32_t SiriusImpl::enqueueBuf(RequestType type, void *buffer, int32_t size)
+int32_t SiriusImpl::enqueue(RequestType type, int32_t id)
 {
     CONSTRUCT_IMPL();
     RWLock::AutoRLock l(mIntfLock);
     BufferInfo buf = {
         .type = type,
-        .buf = buffer,
-        .size = size,
+        .id   = id,
     };
-    return (this->*(gAddThreadTaskFunc[TYPE_ENQUEUE_BUF]))(TYPE_ENQUEUE_BUF, &buf);
+    return (this->*(gAddThreadTaskFunc[TYPE_ENQUEUE]))(TYPE_ENQUEUE, &buf);
 }
 
-int32_t SiriusImpl::dequeueBuf(RequestType type, void *buffer)
+int32_t SiriusImpl::setCallback(RequestCbFunc requestCb, EventCbFunc eventCb)
 {
     CONSTRUCT_IMPL();
     RWLock::AutoRLock l(mIntfLock);
-    BufferInfo buf = {
-        .type = type,
-        .buf = buffer,
+    CbInfo func = {
+        .requestCb = requestCb,
+        .eventCb   = eventCb,
     };
-    return (this->*(gAddThreadTaskFunc[TYPE_DEQUEUE_BUF]))(TYPE_DEQUEUE_BUF, &buf);
-}
-
-int32_t SiriusImpl::setCallback(callback_func func)
-{
-    CONSTRUCT_IMPL();
-    RWLock::AutoRLock l(mIntfLock);
     return (this->*(gAddThreadTaskFunc[TYPE_SET_CB]))(TYPE_SET_CB, &func);
 }
 
@@ -282,25 +269,18 @@ int32_t SiriusImpl::coreAbort(void *_type)
         NOT_INITED : mCore->abort(*type);
 }
 
-int32_t SiriusImpl::coreEnqueueBuf(void *_info)
+int32_t SiriusImpl::coreEnqueue(void *_info)
 {
     BufferInfo *inf = static_cast<BufferInfo *>(_info);
     return ISNULL(mCore) ?
-        NOT_INITED : mCore->enqueueBuf(inf->type, inf->buf, inf->size);
-}
-
-int32_t SiriusImpl::coreDequeueBuf(void *_info)
-{
-    BufferInfo *inf = static_cast<BufferInfo *>(_info);
-    return ISNULL(mCore) ?
-        NOT_INITED : mCore->dequeueBuf(inf->type, inf->buf);
+        NOT_INITED : mCore->enqueue(inf->type, inf->id);
 }
 
 int32_t SiriusImpl::coreSetCallback(void *_func)
 {
-    callback_func *func = static_cast<callback_func *>(_func);
+    CbInfo *func = static_cast<CbInfo *>(_func);
     return ISNULL(mCore) ?
-        NOT_INITED : mCore->setCallback(*func);
+        NOT_INITED : mCore->setCallback(func->requestCb, func->eventCb);
 }
 
 };

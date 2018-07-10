@@ -20,7 +20,7 @@ public:
     ~SyncType();
     SyncType &operator=(const sync_type &rhs);
     SyncType &operator=(const SyncType &rhs);
-    bool operator== (const sync_type &rhs);
+    bool operator==(const sync_type &rhs);
     bool operator==(const SyncType &rhs);
     bool operator!=(const sync_type &rhs);
     bool operator!=(const SyncType &rhs);

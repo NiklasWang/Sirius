@@ -17,22 +17,24 @@ class SiriusImpl :
 public:
     int32_t request(RequestType type) override;
     int32_t abort(RequestType type) override;
-    int32_t enqueueBuf(RequestType type, void *buf, int32_t size) override;
-    int32_t dequeueBuf(RequestType type, void *buf = ALL_BUFFERS) override;
-    int32_t setCallback(callback_func func) override;
+    int32_t enqueue(RequestType type, int32_t id) override;
+    int32_t setCallback(RequestCbFunc requestCb, EventCbFunc eventCb) override;
 
 private:
     struct BufferInfo {
         RequestType type;
-        void   *buf;
-        int32_t size;
+        int32_t id;
+    };
+
+    struct CbInfo {
+        RequestCbFunc requestCb;
+        EventCbFunc   eventCb;
     };
 
 private:
     int32_t coreRequest(void *type);
     int32_t coreAbort(void *type);
-    int32_t coreEnqueueBuf(void *info);
-    int32_t coreDequeueBuf(void *info);
+    int32_t coreEnqueue(void *info);
     int32_t coreSetCallback(void *func);
 
 public:
@@ -49,8 +51,7 @@ private:
     enum TaskType {
         TYPE_REQUEST,
         TYPE_ABORT,
-        TYPE_ENQUEUE_BUF,
-        TYPE_DEQUEUE_BUF,
+        TYPE_ENQUEUE,
         TYPE_SET_CB,
         TYPE_MAX_INVALID,
     };

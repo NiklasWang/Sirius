@@ -29,7 +29,8 @@ public:
     int32_t setCallback(RequestCbFunc requestCb, EventCbFunc eventCb) override;
 
 public:
-    int32_t sendCallback(RequestType type, void *data) override;
+    int32_t send(RequestType type, int32_t id, void *head, void *dat) override;
+    int32_t send(int32_t event, int32_t arg1, int32_t arg2) override;
     int32_t allocateIon(void **buf, int32_t len, int32_t *fd) override;
     int32_t releaseIon(void *buf) override;
     int32_t setMemStatus(RequestType type, int32_t fd, bool fresh = false) override;
@@ -50,12 +51,11 @@ public:
     virtual ~SiriusCore();
     int32_t construct();
     int32_t destruct();
-    bool requested(RequestType type);
 
 private:
-    RequestHandler *createRequestHandler(RequestType type);
-    int32_t createRequestHandler(RequestType type, bool wait);
-    int32_t abortRequest(RequestType type);
+    bool requested(RequestType type);
+    int32_t createRequestHandler(RequestType type);
+    RequestHandler *createHandler(RequestType type);
     int32_t enableCachedRequests();
     int32_t convertToRequestType(char *msg, RequestType *type);
 
@@ -72,6 +72,7 @@ private:
     bool                     mConstructed;
     ModuleType               mModule;
     bool                     mExit;
+    bool                     mClientReady;
     int32_t                  mCtlFd;
     void                    *mCtlMem;
     ServerClientControl      mCtl;
@@ -82,7 +83,6 @@ private:
     RunOnce                 *mRunOnce;
     RequestHandler          *mRequests[REQUEST_TYPE_MAX_INVALID];
     EventServer             *mEvtSvr;
-    //DataServer              *mDatSvr;
     bool                     mCachedRequest[REQUEST_TYPE_MAX_INVALID];
 
 private:
