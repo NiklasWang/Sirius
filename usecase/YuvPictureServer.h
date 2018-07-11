@@ -6,7 +6,7 @@
 
 namespace sirius {
 
-class YuvPictureRequestServer :
+class YuvPictureServer :
     public RequestHandler,
     public noncopyable {
 public:
@@ -14,8 +14,8 @@ public:
     int32_t getDataSize() override;
 
 public:
-    YuvPictureRequestServer(HandlerOpsIntf *ops);
-    virtual ~YuvPictureRequestServer();
+    YuvPictureServer(HandlerOpsIntf *ops);
+    virtual ~YuvPictureServer();
 };
 
 };

@@ -696,8 +696,9 @@ bool SiriusCore::RunOnce::isRuning()
 
 };
 
-#include "PreviewRequestServer.h"
-#include "YuvPictureRequestServer.h"
+#include "PreviewServer.h"
+#include "YuvPictureServer.h"
+#include "EventServer.h"
 
 namespace sirius {
 
@@ -707,15 +708,15 @@ RequestHandler *SiriusCore::createHandler(RequestType type)
 
     switch (type) {
         case PREVIEW_NV21: {
-            request = new PreviewRequestServer(this);
+            request = new PreviewServer(this);
         } break;
         case PICTURE_NV21: {
-            request = new YuvPictureRequestServer(this);
+            request = new YuvPictureServer(this);
         } break;
         case PICTURE_BAYER: {
         } break;
         case EXTENDED_EVENT: {
-            // EventRequestServer not inherited form RequestHandler.
+            request = new EventServer(this);
         } break;
         default: {
             LOGE(mModule, "Invalid request type %d", type);

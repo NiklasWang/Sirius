@@ -27,6 +27,8 @@ RequestHandler::RequestHandler(HandlerOpsIntf *ops,
 {
     ASSERT_LOG(mModule, NOTNULL(ops), "Ops shouldn't be NULL");
     ASSERT_LOG(mModule, memNum != 0,  "Mem num shoudn't be 0");
+    ASSERT_LOG(mModule, getRequestType(type) != REQUEST_TYPE_MAX_INVALID,
+        "Invalid request type %d", type);
     ASSERT_LOG(mModule, mMemNum < REQUEST_HANDLER_MAX_MEMORY_NUM,
         "Too much mem to share, %d/%d", mMemNum, REQUEST_HANDLER_MAX_MEMORY_NUM);
     if (ISNULL(name)) {

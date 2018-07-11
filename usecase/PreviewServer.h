@@ -6,7 +6,7 @@
 
 namespace sirius {
 
-class PreviewRequestServer :
+class PreviewServer :
     public RequestHandler,
     public noncopyable {
 public:
@@ -14,8 +14,8 @@ public:
     int32_t getDataSize() override;
 
 public:
-    PreviewRequestServer(HandlerOpsIntf *ops);
-    virtual ~PreviewRequestServer();
+    PreviewServer(HandlerOpsIntf *ops);
+    virtual ~PreviewServer();
 };
 
 };
