@@ -15,7 +15,6 @@
 namespace sirius {
 
 class EventServer;
-class DataServer;
 
 class SiriusCore :
     public SiriusIntf,

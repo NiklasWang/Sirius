@@ -5,7 +5,6 @@
 #include "RunOnceThread.h"
 #include "SiriusIntf.h"
 #include "HandlerOpsIntf.h"
-#include "UserBufferMgr.h"
 
 namespace sirius {
 
@@ -17,9 +16,8 @@ public:
 
     int32_t enqueue(int32_t id);
     int32_t abort();
-    int32_t getExpectedBufferSize();
-    int32_t onClientReady();
     int32_t setSocketFd(int32_t fd);
+    int32_t onClientReady();
 
 public:
     RequestHandler(HandlerOpsIntf *ops,
@@ -33,11 +31,12 @@ protected:
     virtual int32_t getDataSize() = 0;
 
 private:
-    int32_t runOnceFunc(void *in, void *out) override;
-    int32_t onOnceFuncFinished(int32_t rc) override;
-    int32_t abortOnceFunc() override;
+    virtual int32_t runOnceFunc(void *in, void *out) override;
+    virtual int32_t onOnceFuncFinished(int32_t rc) override;
+    virtual int32_t abortOnceFunc() override;
 
 private:
+    int32_t getExpectedBufferSize();
     int32_t allocMemAndShare();
     int32_t allocMem();
     int32_t releaseMem();
@@ -65,19 +64,19 @@ private:
     };
 
 private:
-    bool            mConstructed;
-    ModuleType      mModule;
-    const char     *mName;
-    RequestType     mType;
-    HandlerOpsIntf *mOps;
-    bool            mMemShared;
-    uint32_t        mMemNum;
-    MemoryInfo     *mMem;
-    RunOnce        *mRunOnce;
-    SocketServerStateMachine mSSSM;
+    bool         mConstructed;
+    ModuleType   mModule;
+    const char  *mName;
+    RequestType  mType;
+    bool         mMemShared;
+    uint32_t     mMemNum;
+    MemoryInfo  *mMem;
+    RunOnce     *mRunOnce;
 
 protected:
     Header          mHeader;
+    HandlerOpsIntf *mOps;
+    SocketServerStateMachine mSSSM;
 };
 
 };

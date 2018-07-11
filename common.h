@@ -81,6 +81,18 @@ enum err_raeson {
             _result; \
         })
 
+#define COMPARE_SAME_STRING_LEN(LHS, RHS, len) \
+        ({ \
+            bool _result = true; \
+            if (NOTNULL(LHS) && NOTNULL(RHS)) { \
+                _result &= !strncmp(LHS, RHS, len); \
+            } else if (ISNULL(LHS) && ISNULL(RHS)) { \
+            } else { \
+                _result = false; \
+            } \
+            _result; \
+        })
+
 #ifndef offsetof
 #define offsetof(TYPE, MEMBER) ((int32_t) &((TYPE *)0)->MEMBER)
 #endif

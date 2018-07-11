@@ -1,5 +1,6 @@
 #include "PreviewRequestServer.h"
-#include "configuration.h"
+
+#define PREIVEW_REQUEST_MEMORY_NUM 6
 
 namespace sirius {
 

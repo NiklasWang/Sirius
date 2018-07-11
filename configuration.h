@@ -26,8 +26,6 @@ namespace sirius {
 #define SOCKET_EVENT_REQUEST_FORMAT   "EVT:"
 
 #define REQUEST_HANDLER_MAX_MEMORY_NUM 10
-#define PREIVEW_REQUEST_MEMORY_NUM     6
-#define PICTURE_REQUEST_MEMORY_NUM     2
 
 };
 

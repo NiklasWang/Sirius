@@ -2,42 +2,23 @@
 #define _EVENT_REQUEST_SERVER_H_
 
 #include "common.h"
-#include "SiriusIntf.h"
-#include "RunOnceThread.h"
-#include "SocketServerStateMachine.h"
+#include "RequestHandler.h"
 
 namespace sirius {
 
-class HandlerOpsIntf;
-
 class EventServer :
-    public RunOnceFunc,
+    public RequestHandler,
     public noncopyable {
 public:
-    EventServer(HandlerOpsIntf *ops, int32_t server_socket);
-    ~EventServer();
-    int32_t construct();
-    int32_t destruct();
+    int32_t getHeaderSize() override;
+    int32_t getDataSize() override;
+    int32_t runOnceFunc(void *in, void *out) override;
 
 public:
-    int32_t runOnceFunc(void *in, void *out) override;
-    int32_t onOnceFuncFinished(int32_t rc) override;
-    int32_t abortOnceFunc() override;
+    EventServer(HandlerOpsIntf *ops);
+    virtual ~EventServer();
 
 private:
-    int32_t handleClientMsg(char *msg);
-    struct EvtInfo;
-    int32_t convertMsgToEvt(char *msg, EvtInfo *evt);
-
-private:
-    class RunOnce :
-        public RunOnceThread {
-    public:
-        int32_t run(RunOnceFunc *func, void *in, void *out);
-        int32_t exit();
-        bool    isRuning();
-    };
-
     struct EvtInfo {
         EvtInfo();
         int32_t evt;
@@ -46,14 +27,8 @@ private:
     };
 
 private:
-    bool        mConstructed;
-    ModuleType  mModule;
-    RequestType mType;
-    int32_t     mSocketFd;
-    RunOnce     mRunOnce;
-    bool        mExit;
-    HandlerOpsIntf          *mOps;
-    SocketServerStateMachine mSSSM;
+    int32_t convertMsgToEvt(char *msg, EvtInfo &evt);
+    int32_t onNewEvent(EvtInfo &info);
 };
 
 };

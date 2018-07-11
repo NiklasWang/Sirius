@@ -19,18 +19,18 @@ RequestHandler::RequestHandler(HandlerOpsIntf *ops,
     mModule(MODULE_REQUEST_HANDLER),
     mName(name),
     mType(type),
-    mOps(ops),
     mMemShared(false),
     mMemNum(memNum),
     mMem(NULL),
-    mRunOnce(NULL)
+    mRunOnce(NULL),
+    mOps(ops)
 {
     ASSERT_LOG(mModule, NOTNULL(ops), "Ops shouldn't be NULL");
     ASSERT_LOG(mModule, memNum != 0,  "Mem num shoudn't be 0");
     ASSERT_LOG(mModule, mMemNum < REQUEST_HANDLER_MAX_MEMORY_NUM,
         "Too much mem to share, %d/%d", mMemNum, REQUEST_HANDLER_MAX_MEMORY_NUM);
     if (ISNULL(name)) {
-        name = "generic request handler";
+        mName = "generic request handler";
     }
 }
 
@@ -139,6 +139,12 @@ int32_t RequestHandler::allocMem()
     }
 
     if (SUCCEED(rc)) {
+        if (size == 0) {
+            rc = NOT_REQUIRED;
+        }
+    }
+
+    if (SUCCEED(rc)) {
         mMem = (MemoryInfo *)malloc(sizeof(MemoryInfo) * mMemNum);
         if (ISNULL(mMem)) {
             LOGE(mModule, "Failed to alloc memory");
@@ -181,8 +187,12 @@ int32_t RequestHandler::releaseMem()
     int32_t rc = NO_ERROR;
 
     if (ISNULL(mMem)) {
-        LOGE(mModule, "Memory not allocated.");
-        rc = NOT_INITED;
+        if (getExpectedBufferSize()) {
+            LOGE(mModule, "Memory not allocated.");
+            rc = NOT_INITED;
+        } else {
+            rc = NOT_REQUIRED;
+        }
     }
 
     if (SUCCEED(rc)) {
@@ -204,11 +214,12 @@ int32_t RequestHandler::releaseMem()
     }
 
     if (SUCCEED(rc)) {
-        free(mMem);
-        mMem = NULL;
+        if (NOTNULL(mMem)) {
+            SECURE_FREE(mMem);
+        }
     }
 
-    return rc;
+    return RETURNIGNORE(rc, NOT_REQUIRED);
 }
 
 int32_t RequestHandler::shareSingleMem(int32_t fd)
@@ -296,11 +307,12 @@ int32_t RequestHandler::shareSingleMem(int32_t fd)
     return rc;
 }
 
-int32_t RequestHandler::convertToClientFd(char *msg, const char *prefix, int32_t *clientfd)
+int32_t RequestHandler::convertToClientFd(
+    char *msg, const char *prefix, int32_t *clientfd)
 {
     int32_t rc = NO_ERROR;
 
-    if (!COMPARE_SAME_STRING(msg, prefix)) {
+    if (!COMPARE_SAME_STRING(msg, prefix, strlen(prefix))) {
         LOGE(mModule, "Prefix not match, %s VS %s", msg, prefix);
         rc = PARAM_INVALID;
     }
@@ -370,7 +382,9 @@ int32_t RequestHandler::allocMemAndShare()
 
     if (SUCCEED(rc)) {
         rc = allocMem();
-        if (!SUCCEED(rc)) {
+        if (rc == NOT_REQUIRED) {
+            LOGE(mModule, "Request %d not required memory", getType());
+        } else if (!SUCCEED(rc)) {
             LOGE(mModule, "Failed to alloc memory, %d", rc);
         }
     }
@@ -384,7 +398,7 @@ int32_t RequestHandler::allocMemAndShare()
         }
     }
 
-    return rc;
+    return RETURNIGNORE(rc, NOT_REQUIRED);
 }
 
 int32_t RequestHandler::onClientReady()

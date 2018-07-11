@@ -1,5 +1,6 @@
 #include "YuvPictureRequestServer.h"
-#include "configuration.h"
+
+#define PICTURE_REQUEST_MEMORY_NUM 2
 
 namespace sirius {
 
