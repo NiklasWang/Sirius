@@ -268,7 +268,10 @@ int32_t IonBufferMgr::release(void *buf)
     }
 
     if (SUCCEED(rc)) {
-        rc = release_remove(buffer);
+        rc = release(buffer);
+        if (!SUCCEED(rc)) {
+            LOGE(mModule, "Failed to release buf, %d", rc);
+        }
     }
 
     return rc;

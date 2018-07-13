@@ -80,8 +80,7 @@ private:
     IonBufferMgr             mIon;
     ServerCallbackThread     mCb;
     RunOnce                 *mRunOnce;
-    RequestHandler          *mRequests[REQUEST_TYPE_MAX_INVALID];
-    EventServer             *mEvtSvr;
+    RequestHandlerIntf      *mRequests[REQUEST_TYPE_MAX_INVALID];
     bool                     mCachedRequest[REQUEST_TYPE_MAX_INVALID];
 
 private:

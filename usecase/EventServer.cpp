@@ -18,6 +18,14 @@ int32_t EventServer::runOnceFunc(void *in, void *out)
 {
     int32_t rc = NO_ERROR;
 
+    if (SUCCEED(rc)) {
+        rc = mSSSM.sendMsg(SOCKET_SERVER_SHARE_DONE,
+            strlen(SOCKET_SERVER_SHARE_DONE));
+        if (!SUCCEED(rc)) {
+            LOGE(mModule, "Failed to send share done msg, %d", rc);
+        }
+    }
+
     do {
         EvtInfo info;
         RESETRESULT(rc);

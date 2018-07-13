@@ -1,5 +1,5 @@
-#ifndef _HANDLER_OPERATIONS_INTERFACE_H_
-#define _HANDLER_OPERATIONS_INTERFACE_H_
+#ifndef _HANDLER_OPS_CLIENT_INTF_H_
+#define _HANDLER_OPS_CLIENT_INTF_H_
 
 #include <stdint.h>
 
@@ -12,7 +12,7 @@ namespace sirius {
 #define ENABLE_REQUEST  1
 #define DISABLE_REQUEST 0
 
-class HandlerOpsIntf {
+class HandlerOpsClientIntf {
 public:
     virtual int32_t send(RequestType type, int32_t id, void *header, uint8_t *dat) = 0;
     virtual int32_t send(int32_t event, int32_t arg1, int32_t arg2) = 0;
@@ -31,5 +31,6 @@ public:
 };
 
 };
+
 
 #endif

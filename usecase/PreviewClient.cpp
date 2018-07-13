@@ -1,10 +1,10 @@
 #include "common.h"
-#include "PreviewRequestClient.h"
+#include "PreviewClient.h"
 #include "SiriusClientCore.h"
 
 namespace sirius {
 
-PreviewRequestClient::PreviewRequestClient() :
+PreviewClient::PreviewClient() :
     mModule(MODULE_PREVIEW_REQUEST),
     mType(PREVIEW_NV21),
     mName("Preview(NV21) Request"),
@@ -12,14 +12,14 @@ PreviewRequestClient::PreviewRequestClient() :
 {
 }
 
-PreviewRequestClient::~PreviewRequestClient()
+PreviewClient::~PreviewClient()
 {
     if (NOTNULL(mCore)) {
         destruct();
     }
 }
 
-int32_t PreviewRequestClient::construct()
+int32_t PreviewClient::construct()
 {
     int32_t rc = NO_ERROR;
 
@@ -34,7 +34,7 @@ int32_t PreviewRequestClient::construct()
     return rc;
 }
 
-int32_t PreviewRequestClient::destruct()
+int32_t PreviewClient::destruct()
 {
     if (NOTNULL(mCore)) {
         mCore = NULL;
@@ -44,7 +44,7 @@ int32_t PreviewRequestClient::destruct()
     return NO_ERROR;
 }
 
-int32_t PreviewRequestClient::onPreviewFrameReady(
+int32_t PreviewClient::onPreviewFrameReady(
     int32_t w, int32_t h, int32_t stride, int32_t scanline, void *data)
 {
     int32_t rc = NO_ERROR;
@@ -73,7 +73,7 @@ int32_t PreviewRequestClient::onPreviewFrameReady(
     return rc;
 }
 
-int32_t PreviewRequestClient::copyData(void *dst, int32_t maxSize)
+int32_t PreviewClient::copyData(void *dst, int32_t maxSize)
 {
     int32_t rc = NO_ERROR;
 
@@ -93,17 +93,17 @@ int32_t PreviewRequestClient::copyData(void *dst, int32_t maxSize)
     return rc;
 }
 
-int32_t PreviewRequestClient::sizeOfHeader()
+int32_t PreviewClient::sizeOfHeader()
 {
     return sizeof(PreviewSize);
 }
 
-RequestType PreviewRequestClient::type()
+RequestType PreviewClient::type()
 {
     return mType;
 }
 
-const char *PreviewRequestClient::name()
+const char *PreviewClient::name()
 {
     return mName;
 }
@@ -111,7 +111,7 @@ const char *PreviewRequestClient::name()
 #define ALIGN_WITH_NUM(num, stride) \
     (((num) + (stride) - 1) & (~((stride) - 1)))
 
-int32_t PreviewRequestClient::removeStrideCopyFrame(void *_dst)
+int32_t PreviewClient::removeStrideCopyFrame(void *_dst)
 {
     uint32_t offset_src = 0;
     uint32_t offset_dst = 0;

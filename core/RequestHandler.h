@@ -5,26 +5,28 @@
 #include "RunOnceThread.h"
 #include "SiriusIntf.h"
 #include "HandlerOpsIntf.h"
+#include "RequestHandlerIntf.h"
 
 namespace sirius {
 
 class RequestHandler :
+    public RequestHandlerIntf,
     public RunOnceFunc {
 public:
-    RequestType getType();
-    const char *getName();
+    virtual int32_t enqueue(int32_t id) override;
+    virtual int32_t abort() override;
+    virtual int32_t setSocketFd(int32_t fd) override;
+    virtual int32_t onClientReady() override;
 
-    int32_t enqueue(int32_t id);
-    int32_t abort();
-    int32_t setSocketFd(int32_t fd);
-    int32_t onClientReady();
+    virtual RequestType getType() override;
+    virtual const char *getName() override;
 
 public:
     RequestHandler(HandlerOpsIntf *ops,
         RequestType type, const char *name, uint32_t memNum);
     virtual ~RequestHandler();
-    int32_t construct();
-    int32_t destruct();
+    virtual int32_t construct() override;
+    virtual int32_t destruct() override;
 
 protected:
     virtual int32_t getHeaderSize() = 0;
