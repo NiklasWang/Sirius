@@ -21,7 +21,7 @@ public:
 
 private:
     Sirius(const Sirius &rhs);
-    Sirius &operator =(const Sirius &rhs);
+    Sirius &operator=(const Sirius &rhs);
 
 private:
     sirius::SiriusImpl *mImpl;
