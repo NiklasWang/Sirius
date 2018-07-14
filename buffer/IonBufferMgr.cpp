@@ -1,3 +1,5 @@
+#ifdef ENABLE_ION_BUFFER
+
 #include <sys/mman.h>
 
 #include "IonBufferMgr.h"
@@ -357,3 +359,4 @@ void IonBufferMgr::clear_all()
 
 };
 
+#endif

@@ -49,6 +49,7 @@ LOCAL_SHARED_LIBRARIES += liblog libutils libcutils
 LOCAL_STATIC_LIBRARIES +=
 
 ifeq ($(ENABLE_ION_MEM),yes)
+  LOCAL_CFLAGS           += ENABLE_ION_BUFFER
   LOCAL_C_INCLUDES       += $(LOCAL_PATH)/android/ion
   LOCAL_STATIC_LIBRARIES += libsirius_ion
   LOCAL_C_INCLUDES       += $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr/include
