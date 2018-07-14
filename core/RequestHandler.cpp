@@ -167,7 +167,7 @@ int32_t RequestHandler::allocMem()
     if (SUCCEED(rc)) {
         for (uint32_t i = 0; i < mMemNum; i++) {
             mem = NULL; fd = -1;
-            rc = mOps->allocateIon(&mem, size, &fd);
+            rc = mOps->allocateBuf(&mem, size, &fd);
             if (!SUCCEED(rc)) {
                 LOGE(mModule, "Failed to alloc %dB memory, %d", size, rc);
                 break;
@@ -206,7 +206,7 @@ int32_t RequestHandler::releaseMem()
                 mMem[i].size = 0;
                 mMem[i].serverfd = -1;
                 mMem[i].clientfd = -1;
-                rc = mOps->releaseIon(buf);
+                rc = mOps->releaseBuf(buf);
                 if (!SUCCEED(rc)) {
                     LOGF(mModule, "Failed to release memory, will cause "
                         "%d bytes memory leakage, %d", mMem[i].size, rc);

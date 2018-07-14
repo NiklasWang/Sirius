@@ -220,7 +220,7 @@ int32_t RequestHandlerClient::onDataReady(
     }
 
     if (SUCCEED(rc)) {
-        rc = mCtl.getUsedMemLock(type, &fd);
+        rc = mCtl.getUsedMem(type, &fd);
         if (!SUCCEED(rc)) {
             LOGE(mModule, "Failed to get used memory, %d", rc);
         } else if (fd == -1) {
@@ -376,7 +376,7 @@ int32_t RequestHandlerClient::runOnceFunc(void * /*in*/, void * /*out*/)
     }
 
     if (SUCCEED(rc)) {
-        rc = mCtl.setMemory(buf, size, false);
+        rc = mCtl.init(buf, size, false);
         if (!SUCCEED(rc)) {
             LOGE(mModule, "Failed to set memory to controller, %d", rc);
         }

@@ -52,7 +52,7 @@ bool ServerClientControl::requested(RequestType type)
     return result;
 }
 
-int32_t ServerClientControl::getUsedMemLock(
+int32_t ServerClientControl::getUsedMem(
     RequestType type, int32_t *fd)
 {
     int32_t rc = CHECK_MEM_AVAILABLE();
@@ -62,17 +62,21 @@ int32_t ServerClientControl::getUsedMemLock(
     if (SUCCEED(rc)) {
         for (int32_t i = 0; i < mCtl.request[getType(type)].memNum; i++) {
             pthread_mutex_lock(&mem[i].l);
-            if (mem[i].stat == MEMORY_STAT_USED) {
+            if (mem[i].stat == MEMORY_STAT_USED && !mem[i].writting) {
                 index = i;
-                break;
+                mem[i].writting = true;
             }
             pthread_mutex_unlock(&mem[i].l);
+            if (index != -1) {
+                break;
+            }
         }
     }
 
     if (SUCCEED(rc)) {
         if (index == -1) {
             *fd = -1;
+            rc = NOT_FOUND;
         } else {
             *fd = mCtl.request[getType(type)].mems[index].fd;
         }
@@ -120,6 +124,7 @@ int32_t ServerClientControl::setMemStatus(
 
     if (SUCCEED(rc)) {
         mem->stat = fresh ? MEMORY_STAT_FRESH : MEMORY_STAT_USED;
+        mem->writting = false;
         mem->ts = currentUs();
     }
 
@@ -173,30 +178,6 @@ int32_t ServerClientControl::getMemSize(RequestType type, int32_t *size)
     return rc;
 }
 
-int32_t ServerClientControl::lockMemory(RequestType type, int32_t fd)
-{
-    int32_t rc = CHECK_MEM_AVAILABLE();
-    RequestType requestType = getType(type);
-    RequestMemory *mem = NULL;
-
-    if (SUCCEED(rc)) {
-        rc = findClientMemory(requestType, fd, &mem);
-        if (!SUCCEED(rc)) {
-            LOGE(mModule, "Failed to find client memory, %d", rc);
-        }
-        if (ISNULL(mem)) {
-            LOGE(mModule, "Not found client memory fd %d, %d", fd, rc);
-            rc = NOT_FOUND;
-        }
-    }
-
-    if (SUCCEED(rc)) {
-        pthread_mutex_lock(&mem->l);
-    }
-
-    return rc;
-}
-
 int32_t ServerClientControl::addMemory(
     RequestType type, int32_t clientfd, bool fresh)
 {
@@ -210,6 +191,7 @@ int32_t ServerClientControl::addMemory(
             mems[i].stat = fresh ? MEMORY_STAT_FRESH : MEMORY_STAT_USED;
             mems[i].ts = currentUs();
             pthread_mutex_init(&mems[i].l, NULL);
+            mems[i].writting = false;
             rc = NO_ERROR;
             break;
         }
@@ -217,31 +199,6 @@ int32_t ServerClientControl::addMemory(
 
     if (SUCCEED(rc)) {
         mCtl.request[requestType].memNum++;
-    }
-
-    return rc;
-}
-
-
-int32_t ServerClientControl::unlockMemory(RequestType type, int32_t fd)
-{
-    int32_t rc = CHECK_MEM_AVAILABLE();
-    RequestType requestType = getType(type);
-    RequestMemory *mem = NULL;
-
-    if (SUCCEED(rc)) {
-        rc = findClientMemory(requestType, fd, &mem);
-        if (!SUCCEED(rc)) {
-            LOGE(mModule, "Failed to find client memory, %d", rc);
-        }
-        if (ISNULL(mem)) {
-            LOGE(mModule, "Not found client memory fd %d, %d", fd, rc);
-            rc = NOT_FOUND;
-        }
-    }
-
-    if (SUCCEED(rc)) {
-        pthread_mutex_unlock(&mem->l);
     }
 
     return rc;
@@ -264,7 +221,7 @@ int32_t ServerClientControl::getTotoalSize()
     return sizeof(ControlMemory);
 }
 
-int32_t ServerClientControl::setMemory(void *mem, int32_t size, bool init)
+int32_t ServerClientControl::init(void *mem, int32_t size, bool init)
 {
     int32_t rc = NO_ERROR;
     ASSERT_LOG(mModule, NOTNULL(mem), "Memory must not be NULL");
@@ -289,6 +246,7 @@ int32_t ServerClientControl::setMemory(void *mem, int32_t size, bool init)
                 mCtl.request[i].mems[j].stat = MEMORY_STAT_USED;
                 mCtl.request[i].mems[j].ts = 0;
                 pthread_mutex_init(&mCtl.request[i].mems[j].l, NULL);
+                mCtl.request[i].mems[j].writting = false;
             }
         }
     }

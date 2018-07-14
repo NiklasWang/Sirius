@@ -13,7 +13,7 @@ int32_t SiriusCore::construct()
     }
 
     if (SUCCEED(rc)) {
-        rc = mIon.init();
+        rc = mBuffer.init();
         if (!SUCCEED(rc)) {
             LOGE(mModule, "Failed to init ion buf mgr, %d", rc);
         }
@@ -28,14 +28,14 @@ int32_t SiriusCore::construct()
     }
 
     if (SUCCEED(rc)) {
-        rc = mIon.allocate(&mCtlMem, size, &mCtlFd);
+        rc = mBuffer.allocate(&mCtlMem, size, &mCtlFd);
         if (!SUCCEED(rc)) {
             LOGE(mModule, "Failed to alloc %dB ion buf", size);
         }
     }
 
     if (SUCCEED(rc)) {
-        rc = mCtl.setMemory(mCtlMem, size, true);
+        rc = mCtl.init(mCtlMem, size, true);
         if (!SUCCEED(rc)) {
             LOGE(mModule, "Failed to set memory to control mgr, %d", rc);
         }
@@ -52,6 +52,13 @@ int32_t SiriusCore::construct()
         rc = mCb.construct();
         if (!SUCCEED(rc)) {
             LOGE(mModule, "Failed to construct callback thread, %d", rc);
+        }
+    }
+
+    if (SUCCEED(rc)) {
+        mRunOnce = new RunOnce(this);
+        if (ISNULL(mRunOnce)) {
+            LOGE(mModule, "Failed to construct run once thread, %d", rc);
         }
     }
 
@@ -288,6 +295,7 @@ int32_t SiriusCore::destruct()
             if (!SUCCEED(rc)) {
                 final |= rc;
                 LOGE(mModule, "Failed to cancel request %d", i);
+                RESETRESULT(rc);
             }
         }
     }
@@ -297,7 +305,7 @@ int32_t SiriusCore::destruct()
         if (!SUCCEED(rc)) {
             final |= rc;
             LOGE(mModule, "Failed to abort run once thread");
-            rc = NO_ERROR;
+            RESETRESULT(rc);
         }
     }
 
@@ -309,14 +317,14 @@ int32_t SiriusCore::destruct()
                     final |= rc;
                     LOGE(mModule, "Failed to abort request handler %s",
                         mRequests[i]->getName());
-                    rc = NO_ERROR;
+                    RESETRESULT(rc);
                 }
                 rc = mRequests[i]->destruct();
                 if (!SUCCEED(rc)) {
                     final |= rc;
                     LOGE(mModule, "Failed to destruct request handler %s",
                         mRequests[i]->getName());
-                    rc = NO_ERROR;
+                    RESETRESULT(rc);
                 }
                 SECURE_DELETE(mRequests[i]);
             }
@@ -328,7 +336,7 @@ int32_t SiriusCore::destruct()
         if (!SUCCEED(rc)) {
             final |= rc;
             LOGE(mModule, "Failed to destruct socket state machine, %d", rc);
-            rc = NO_ERROR;
+            RESETRESULT(rc);
         }
     }
 
@@ -337,7 +345,7 @@ int32_t SiriusCore::destruct()
         if (!SUCCEED(rc)) {
             final |= rc;
             LOGE(mModule, "Failed to destruct callback thread, %d", rc);
-            rc = NO_ERROR;
+            RESETRESULT(rc);
         }
     }
 
@@ -347,7 +355,7 @@ int32_t SiriusCore::destruct()
             if (!SUCCEED(rc)) {
                 final |= rc;
                 LOGE(mModule, "Failed to exit rcun once thread, %d", rc);
-                rc = NO_ERROR;
+                RESETRESULT(rc);
             }
             SECURE_DELETE(mRunOnce);
         }
@@ -355,11 +363,11 @@ int32_t SiriusCore::destruct()
 
     if (SUCCEED(rc)) {
         if (NOTNULL(mCtlMem)) {
-            rc = mIon.release(mCtlMem);
+            rc = mBuffer.release(mCtlMem);
             if (!SUCCEED(rc)) {
                 final |= rc;
                 LOGE(mModule, "Failed to release ion buf, %d", rc);
-                rc = NO_ERROR;
+                RESETRESULT(rc);
             }
         }
     }
@@ -372,12 +380,12 @@ int32_t SiriusCore::destruct()
     }
 
     if (SUCCEED(rc)) {
-        mIon.clear_all();
-        rc = mIon.deinit();
+        mBuffer.clear_all();
+        rc = mBuffer.deinit();
         if (!SUCCEED(rc)) {
             final |= rc;
             LOGE(mModule, "Failed to deinit ion buf mgr, %d", rc);
-            rc = NO_ERROR;
+            RESETRESULT(rc);
         }
     }
 
@@ -598,14 +606,14 @@ int32_t SiriusCore::send(int32_t event, int32_t arg1, int32_t arg2)
     return mCb.send(event, arg1, arg2);
 }
 
-int32_t SiriusCore::allocateIon(void **buf, int32_t len, int32_t *fd)
+int32_t SiriusCore::allocateBuf(void **buf, int32_t len, int32_t *fd)
 {
-    return mIon.allocate(buf, len, fd);
+    return mBuffer.allocate(buf, len, fd);
 }
 
-int32_t SiriusCore::releaseIon(void *buf)
+int32_t SiriusCore::releaseBuf(void *buf)
 {
-    return mIon.release(buf);
+    return mBuffer.release(buf);
 }
 
 int32_t SiriusCore::setMemStatus(RequestType type, int32_t fd, bool fresh)

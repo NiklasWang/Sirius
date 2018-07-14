@@ -3,6 +3,8 @@
 
 namespace sirius {
 
+class BufferMgrIntf;
+
 class BufferMgr :
     public BufferMgrIntf,
     public noncopyable  {

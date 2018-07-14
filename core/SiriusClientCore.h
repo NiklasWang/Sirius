@@ -4,7 +4,7 @@
 #include "common.h"
 #include "SiriusIntf.h"
 #include "ServerClientControl.h"
-#include "IonBufferMgr.h"
+#include "BufferMgrIntf.h"
 #include "SocketClientStateMachine.h"
 
 namespace sirius {
@@ -13,14 +13,17 @@ class SiriusClientCore :
     public RunOnceFunc,
     public noncopyable {
 public:
+    int32_t prepare();
+    bool ready();
+
     bool requested(RequestType type);
-    int32_t importIon(void **buf, int32_t len, int32_t *fd) override;
-    int32_t releaseIon(void *buf) override;
+    int32_t importBuf(void **buf, int32_t len, int32_t *fd) override;
+    int32_t releaseBuf(void *buf) override;
+    int32_t getUsedMem(RequestType type, int32_t *fd);
     int32_t setMemStatus(RequestType type, int32_t fd, bool fresh = USED_MEMORY) override;
     int32_t getMemStatus(RequestType type, int32_t fd, bool *fresh) override;
     int32_t getMemSize(RequestType type, int32_t *size) override;
-    bool connected();
-    bool ready();
+    int32_t setHeader(Header &header);
 
 public:
     int32_t construct();
@@ -29,12 +32,14 @@ public:
     virtual ~SiriusClientCore();
 
 private:
-    bool         mConstructed;
-    ModuleType   mModule;
-    bool         mConnected;
-    bool         mReady;
-    IonBufferMgr mBufMgr;
-    ServerClientControl mCtl;
+    bool           mConstructed;
+    ModuleType     mModule;
+    bool           mConnected;
+    bool           mReady;
+    BufferMgrIntf *mBufMgr;
+    void          *mCtlBuf;
+    ServerClientControl      mCtl;
+    pthread_mutex_t          mLocker;
     SocketClientStateMachine mSC;
 };
 

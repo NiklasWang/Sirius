@@ -30,8 +30,8 @@ public:
 public:
     int32_t send(RequestType type, int32_t id, void *head, void *dat) override;
     int32_t send(int32_t event, int32_t arg1, int32_t arg2) override;
-    int32_t allocateIon(void **buf, int32_t len, int32_t *fd) override;
-    int32_t releaseIon(void *buf) override;
+    int32_t allocateBuf(void **buf, int32_t len, int32_t *fd) override;
+    int32_t releaseBuf(void *buf) override;
     int32_t setMemStatus(RequestType type, int32_t fd, bool fresh = false) override;
     int32_t getMemStatus(RequestType type, int32_t fd, bool *fresh) override;
     int32_t setMemSize(RequestType type, int32_t size) override;
@@ -77,7 +77,7 @@ private:
     ServerClientControl      mCtl;
     SocketServerStateMachine mSS;
     char                     mSocketMsg[SOCKET_DATA_MAX_LEN];
-    IonBufferMgr             mIon;
+    BufferMgr                mBuffer;
     ServerCallbackThread     mCb;
     RunOnce                 *mRunOnce;
     RequestHandlerIntf      *mRequests[REQUEST_TYPE_MAX_INVALID];
