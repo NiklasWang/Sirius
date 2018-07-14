@@ -1,4 +1,5 @@
 #include "RequestHandlerClient.h"
+#include "MemMgmt.h"
 
 namespace sirius {
 
@@ -13,7 +14,7 @@ int32_t RequestHandlerClient::construct()
     if (ISNULL(mMemMap)) {
         int32_t num = REQUEST_TYPE_MAX_INVALID *
             REQUEST_HANDLER_MAX_MEMORY_NUM;
-        mMemMap = (MemoryMap *)malloc(sizeof(MemoryMap) * num);
+        mMemMap = (MemoryMap *)Malloc(sizeof(MemoryMap) * num);
         if (ISNULL(mMemMap)) {
             LOGE(mModule, "Failed to alloc %d bytes.",
                 sizeof(MemoryMap) * num);
@@ -120,8 +121,7 @@ int32_t RequestHandlerClient::destruct()
 
     if (SUCCEED(rc)) {
         if (NOTNULL(mMemMap)) {
-            free(mMemMap);
-            mMemMap = NULL;
+            SECURE_FREE(mMemMap);
         }
     }
 

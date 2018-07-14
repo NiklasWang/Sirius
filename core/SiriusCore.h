@@ -3,14 +3,13 @@
 
 #include "common.h"
 #include "SiriusIntf.h"
-#include "RunOnceThread.h"
 #include "HandlerOpsIntf.h"
-#include "UserBufferMgr.h"
-#include "IonBufferMgr.h"
+#include "BufferMgr.h"
 #include "ServerClientControl.h"
 #include "SocketServerStateMachine.h"
 #include "ServerCallbackThread.h"
 #include "RequestHandler.h"
+#include "ThreadPoolEx.h"
 
 namespace sirius {
 
@@ -19,7 +18,6 @@ class EventServer;
 class SiriusCore :
     public SiriusIntf,
     public HandlerOpsIntf,
-    public RunOnceFunc,
     public noncopyable {
 public:
     int32_t request(RequestType type) override;
@@ -41,17 +39,14 @@ public:
     int32_t getHeader(Header &header) override;
 
 public:
-    int32_t runOnceFunc(void *in, void *out) override;
-    int32_t onOnceFuncFinished(int32_t rc) override;
-    int32_t abortOnceFunc() override;
-
-public:
     SiriusCore();
     virtual ~SiriusCore();
     int32_t construct();
     int32_t destruct();
 
 private:
+    int32_t startServerLoop();
+    int32_t exitServerLoop();
     bool requested(RequestType type);
     int32_t createRequestHandler(RequestType type);
     RequestHandler *createHandler(RequestType type);
@@ -59,18 +54,8 @@ private:
     int32_t convertToRequestType(char *msg, RequestType *type);
 
 private:
-    class RunOnce :
-        public RunOnceThread {
-    public:
-        int32_t run(RunOnceFunc *func, void *in, void *out);
-        int32_t exit();
-        bool    isRuning();
-    };
-
-private:
     bool                     mConstructed;
     ModuleType               mModule;
-    bool                     mExit;
     bool                     mClientReady;
     int32_t                  mCtlFd;
     void                    *mCtlMem;
@@ -79,7 +64,7 @@ private:
     char                     mSocketMsg[SOCKET_DATA_MAX_LEN];
     BufferMgr                mBuffer;
     ServerCallbackThread     mCb;
-    RunOnce                 *mRunOnce;
+    ThreadPoolEx            *mThreads;
     RequestHandlerIntf      *mRequests[REQUEST_TYPE_MAX_INVALID];
     bool                     mCachedRequest[REQUEST_TYPE_MAX_INVALID];
 

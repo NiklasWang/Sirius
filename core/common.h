@@ -56,7 +56,7 @@ enum err_raeson {
 #define SECURE_FREE(ptr) \
     do { \
         if (!ISNULL(ptr)) { \
-            free(ptr); \
+            Free(ptr); \
             (ptr) = NULL; \
         } \
     } while(0)

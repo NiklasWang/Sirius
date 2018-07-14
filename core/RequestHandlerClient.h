@@ -60,34 +60,16 @@ private:
         int32_t size;
     };
 
-    class ReadyNotifier :
-        public SocketClientStateMachine {
-    public:
-        int32_t init();
-        int32_t deinit();
-        int32_t notify(RequestType type, int32_t clientfd);
-        ReadyNotifier();
-
-    private:
-        bool mExit;
-    };
-
 private:
     bool         mConstructed;
     ModuleType   mModule;
-    ServerClientControl mCtl;
     RunOnce      mRunOnce;
-    bool         mServerConnected;
-    bool         mCtlReady;
     bool         mAbortOnce;
     MemoryMap   *mMemMap;
-    IonBufferMgr mBufMgr;
     SocketClientStateMachine mSC;
-    ReadyNotifier            mNotifier;
-    pthread_mutex_t          mSocketL;
-    static uint32_t          gCnt;
-    static pthread_mutex_t   mInsL;
-    static RequestHandlerClient *gThis;
+
+private:
+    static SiriusClientCore  mCore;
 };
 
 };

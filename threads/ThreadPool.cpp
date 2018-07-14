@@ -2,48 +2,105 @@
 
 namespace sirius {
 
-ThreadPool::ThreadPool(ThreadIntf *p, uint32_t c) :
-    mCnt(0), mCapacity(c),
-    mModule(MODULE_THREAD_POOL), mParent(p)
+int32_t ThreadPool::run(std::function<int32_t ()> func)
+{
+    return run(func, ASYNC_TYPE);
+}
+
+int32_t ThreadPool::runWait(std::function<int32_t ()> func)
+{
+    return run(func, SYNC_TYPE);
+}
+
+int32_t ThreadPool::run(std::function<int32_t ()> func, SyncTypeE sync)
+{
+    int32_t rc = NO_ERROR;
+    WorkerThread *worker = get(
+        sync == SYNC_TYPE ? BLOCK_TYPE : NONBLOCK_TYPE);
+
+    if (NOTNULL(worker)) {
+        rc = worker->run(func, sync,
+            [this](Thread *thread) -> int32_t {
+                return callback(thread);
+            });
+        if (!SUCCEED(rc)) {
+            LOGE(mModule, "Failed to run on worker thread, %d", rc);
+        }
+    } else {
+        LOGE(mModule, "Failed to find idle thread or create new one");
+        rc = UNKNOWN_ERROR;
+    }
+
+    return rc;
+}
+
+#define CHECK_VALID_STATUS() \
+    ({ \
+        int32_t __rc = NO_ERROR; \
+        if (mDestruct) { \
+            __rc = NOT_INITED; \
+            LOGE(mModule, "Thread pool destructed."); \
+        } \
+        __rc; \
+    })
+
+
+ThreadPool::ThreadPool(uint32_t c) :
+    mCnt(0), mCapacity(c), mDestruct(false),
+    mModule(MODULE_THREAD_POOL)
 {
 }
 
 ThreadPool::~ThreadPool()
 {
-    RWLock::AutoWLock l(mWorkLock);
+    mDestruct = true;
 
-    {
-        RWLock::AutoWLock l(mSemLock);
-        while(mSems.begin() != mSems.end()) {
-            mSems.erase(mSems.begin());
-        }
+    Semaphore *sem = NULL;
+    while(NOTNULL(sem = mSems.dequeue())) {
+        sem->signal();
     }
 
-    {
-        RWLock::AutoWLock l(mThreadLock);
-        for (auto &thread : mThreads) {
-            if (!ISNULL(thread)) {
-                thread->destruct();
-            }
+    RWLock::AutoWLock l(mThreadLock);
+    while(mThreads.begin() != mThreads.end()) {
+        auto iter = mThreads.begin();
+        WorkerThread *thread = *iter;
+        if (NOTNULL(thread)) {
+            thread->destruct();
+            delete thread;
         }
+        mThreads.erase(iter);
     }
 }
 
 bool ThreadPool::available()
 {
-    RWLock::AutoRLock l(mWorkLock);
-    return withinCapacity() || haveFree();
+    int32_t rc = CHECK_VALID_STATUS();
+    bool result = false;
+
+    if (SUCCEED(rc)) {
+        result = withinCapacity() || haveFree();
+    }
+
+    return result;
+}
+
+int32_t ThreadPool::workload()
+{
+    return mCnt;
 }
 
 bool ThreadPool::haveFree()
 {
+    int32_t rc = CHECK_VALID_STATUS();
     bool result = false;
-    RWLock::AutoRLock l(mThreadLock);
 
-    for (auto &thread : mThreads) {
-        if (!thread->busy()) {
-            result = true;
-            break;
+    if (SUCCEED(rc)) {
+        RWLock::AutoRLock l(mThreadLock);
+        for (auto &thread : mThreads) {
+            if (thread->idle()) {
+                result = true;
+                break;
+            }
         }
     }
 
@@ -52,36 +109,47 @@ bool ThreadPool::haveFree()
 
 bool ThreadPool::withinCapacity()
 {
-    return !mCapacity ? true : (mCnt < mCapacity);
+    int32_t rc = CHECK_VALID_STATUS();
+    bool result = false;
+
+    if (SUCCEED(rc)) {
+        int32_t cap = mCapacity;
+        result = !mCapacity ? true : (mCnt < cap);
+    }
+
+    return result;
 }
 
-sp<WorkerThread> ThreadPool::get(BlockType type)
+ThreadPool::WorkerThread *ThreadPool::get(BlockType type)
 {
     int32_t rc = NO_ERROR;
     bool create = true;
-    sp<WorkerThread> result = NULL;
-    RWLock::AutoRLock l(mWorkLock);
+    WorkerThread *result = NULL;
 
     do {
         {
-            RWLock::AutoRLock l(mThreadLock);
-            for (auto &thread : mThreads) {
-                if (!thread->busy()) {
+            RWLock::AutoWLock l(mThreadLock);
+            for (auto iter = mThreads.begin(); iter != mThreads.end(); iter++) {
+                if ((*iter)->idle()) {
                     create = false;
-                    result = thread;
+                    result = *iter;
+                    iter = mThreads.erase(iter);
                     break;
                 }
             }
         }
 
         if (ISNULL(result) && (type == BLOCK_TYPE) && !withinCapacity()) {
-            sp<SemaphoreEx> sem = new SemaphoreEx();
-            {
-                RWLock::AutoWLock l(mSemLock);
-                mSems.push_back(sem);
-            }
+            Semaphore *sem = new Semaphore();
+            mSems.enqueue(sem);
             sem->wait();
+            SECURE_DELETE(sem);
         } else {
+            break;
+        }
+
+        if (mDestruct) {
+            LOGE(mModule, "Failed to get thread when pool destructed.");
             break;
         }
     } while (true);
@@ -90,24 +158,27 @@ sp<WorkerThread> ThreadPool::get(BlockType type)
         create = false;
     }
 
+    if (ISNULL(result) && mDestruct) {
+        create = false;
+    }
+
     if (create) {
         char name[255];
+        utils_atomic_inc(&mCnt);
         sprintf(name, "WorkerThread##%d##", mCnt);
-        sp<WorkerThread> thread = NULL;
-        thread = new WorkerThread(mParent, name);
+        WorkerThread *thread = NULL;
+        thread = new WorkerThread(name);
         if (ISNULL(thread)) {
             LOGE(mModule, "Failed to create worker thread");
+            utils_atomic_dec(&mCnt);
             rc = UNKNOWN_ERROR;
         } else {
             rc = thread->construct();
             if (!SUCCEED(rc)) {
                 LOGE(mModule, "Failed to construct worker thread");
+                utils_atomic_dec(&mCnt);
             } else {
-                mCnt++;
-                thread->registerListener(this);
                 result = thread;
-                RWLock::AutoWLock l(mThreadLock);
-                mThreads.push_back(thread);
             }
         }
     }
@@ -115,24 +186,23 @@ sp<WorkerThread> ThreadPool::get(BlockType type)
     return result;
 }
 
-int32_t ThreadPool::onStatusChanged(WorkerStatus status)
+int32_t ThreadPool::callback(WorkerThread *source)
 {
-    RWLock::AutoRLock l(mWorkLock);
+    int32_t rc = CHECK_VALID_STATUS();
 
-    if (status == WORKER_STATUS_IDLE) {
-        if ((mCapacity != 0) && (mCnt >= mCapacity)) {
-            RWLock::AutoWLock l(mSemLock);
-            for (auto &sem : mSems) {
-                sem->signal();
-                break;
-            }
-            if (mSems.begin() != mSems.end()) {
-                mSems.erase(mSems.begin());
-            }
+    if (SUCCEED(rc)) {
+        RWLock::AutoWLock l(mThreadLock);
+        mThreads.push_back(source);
+    }
+
+    if (SUCCEED(rc)) {
+        Semaphore *sem = mSems.dequeue();
+        if (NOTNULL(sem)) {
+            sem->signal();
         }
     }
 
-    return NO_ERROR;
+    return rc;
 }
 
 };

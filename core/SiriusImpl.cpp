@@ -169,7 +169,7 @@ int32_t SiriusImpl::pushToThread(TaskType type, void *value)
 
     task = new Task<T>(type, sync);
     if (ISNULL(task)) {
-        LOGE(mModule, "Failed to new malloc task");
+        LOGE(mModule, "Failed to create new task");
         rc = NO_MEMORY;
     } else {
         task->setid(mTaskCnt++);

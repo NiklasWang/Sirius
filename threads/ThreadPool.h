@@ -1,50 +1,58 @@
 #ifndef _THREAD_POOL_H_
 #define _THREAD_POOL_H_
 
-#include "ThreadIntf.h"
-#include "WorkerThread.h"
+#include "Thread.h"
 #include "Semaphore.h"
 
 namespace sirius {
 
 class ThreadPool :
-    public IStatusListener,
-    public noncopyable {
-public:
-    bool available();
-    sp<WorkerThread> get(BlockType type = BLOCK_TYPE);
+    virtual public noncopyable {
 
-private:
+public:
+
+    int32_t run(std::function<int32_t ()> func);
+
+    template <typename T>
+    int32_t run(std::function<int32_t (T *)> func, T *arg);
+
+    int32_t runWait(std::function<int32_t ()> func);
+
+    template <typename T>
+    int32_t runWait(std::function<int32_t (T *)> func, T *arg);
+
+    int32_t run(std::function<int32_t ()> func, SyncTypeE sync);
+
+    template <typename T>
+    int32_t run(std::function<int32_t (T *)> func, T *arg, SyncTypeE sync);
+
+    bool available();
+    int32_t workload();
     bool haveFree();
     bool withinCapacity();
-    virtual int32_t onStatusChanged(WorkerStatus status) override;
+
+private:
+    typedef Thread WorkerThread;
+
+    WorkerThread *get(BlockType type = BLOCK_TYPE);
+    int32_t callback(WorkerThread *source);
 
 public:
-    explicit ThreadPool(ThreadIntf *p, uint32_t c = 0);
+    explicit ThreadPool(uint32_t c = 0);
     virtual ~ThreadPool();
 
 private:
-    ThreadPool(const ThreadPool &rhs) = delete;
-    ThreadPool &operator=(const ThreadPool &rhs) = delete;
-
-private:
-    struct SemaphoreEx :
-        public Semaphore,
-        public RefBase {
-    };
-
-private:
-    uint32_t mCnt;
+    int32_t  mCnt;
     uint32_t mCapacity;
-    RWLock   mWorkLock;
-    RWLock   mSemLock;
+    bool     mDestruct;
     RWLock   mThreadLock;
     ModuleType mModule;
-    List<sp<SemaphoreEx> > mSems;
-    List<sp<WorkerThread> > mThreads;
-    ThreadIntf *mParent;
+    QueueT<Semaphore> mSems;
+    std::list<WorkerThread *> mThreads;
 };
 
 };
+
+#include "ThreadPool.hpp"
 
 #endif

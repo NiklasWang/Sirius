@@ -2,16 +2,15 @@
 #define _REQUEST_HANDLER_H_
 
 #include "common.h"
-#include "RunOnceThread.h"
 #include "SiriusIntf.h"
 #include "HandlerOpsIntf.h"
 #include "RequestHandlerIntf.h"
+#include "ThreadPoolEx.h"
 
 namespace sirius {
 
 class RequestHandler :
-    public RequestHandlerIntf,
-    public RunOnceFunc {
+    public RequestHandlerIntf {
 public:
     virtual int32_t enqueue(int32_t id) override;
     virtual int32_t abort() override;
@@ -33,11 +32,6 @@ protected:
     virtual int32_t getDataSize() = 0;
 
 private:
-    virtual int32_t runOnceFunc(void *in, void *out) override;
-    virtual int32_t onOnceFuncFinished(int32_t rc) override;
-    virtual int32_t abortOnceFunc() override;
-
-private:
     int32_t getExpectedBufferSize();
     int32_t allocMemAndShare();
     int32_t allocMem();
@@ -57,23 +51,15 @@ private:
         int32_t clientfd;
     };
 
-    class RunOnce :
-        public RunOnceThread {
-    public:
-        int32_t run(RunOnceFunc *func, void *in, void *out);
-        int32_t exit();
-        bool    isRuning();
-    };
-
 private:
-    bool         mConstructed;
-    ModuleType   mModule;
-    const char  *mName;
-    RequestType  mType;
-    bool         mMemShared;
-    uint32_t     mMemNum;
-    MemoryInfo  *mMem;
-    RunOnce     *mRunOnce;
+    bool          mConstructed;
+    ModuleType    mModule;
+    const char   *mName;
+    RequestType   mType;
+    bool          mMemShared;
+    uint32_t      mMemNum;
+    MemoryInfo   *mMem;
+    ThreadPoolEx *mThreads;
 
 protected:
     Header          mHeader;

@@ -56,15 +56,19 @@ int32_t SiriusCore::construct()
     }
 
     if (SUCCEED(rc)) {
-        mRunOnce = new RunOnce(this);
-        if (ISNULL(mRunOnce)) {
-            LOGE(mModule, "Failed to construct run once thread, %d", rc);
+        mThreads = ThreadPoolEx::getInstance();
+        if (ISNULL(mThreads)) {
+            LOGE(mModule, "Failed to get thread pool");
+            rc = UNKNOWN_ERROR;
         }
     }
 
     if (SUCCEED(rc)) {
-        // start socket server and wait for client
-        rc = mRunOnce->run(this, NULL, NULL);
+        rc = mThreads->run(
+            [this]() -> int32_t {
+                return startServerLoop();
+            }
+        );
         if (!SUCCEED(rc)) {
             LOGE(mModule, "Failed to run once thread, %d", rc);
         }
@@ -78,7 +82,7 @@ int32_t SiriusCore::construct()
     return rc;
 }
 
-int32_t SiriusCore::runOnceFunc(void * /*in*/, void * /*out*/)
+int32_t SiriusCore::startServerLoop()
 {
     int32_t rc = NO_ERROR;
 
@@ -257,22 +261,11 @@ int32_t SiriusCore::enableCachedRequests()
     return rc;
 }
 
-int32_t SiriusCore::onOnceFuncFinished(int32_t /*rc*/)
+int32_t SiriusCore::exitServerLoop()
 {
-    return NO_ERROR;
-}
-
-int32_t SiriusCore::abortOnceFunc()
-{
-    int32_t rc = NO_ERROR;
-
-    if (!mSS.connected()) {
-        rc = mSS.cancelWaitConnect();
-        if (!SUCCEED(rc)) {
-            LOGE(mModule, "Failed to cancel wait client");
-        } else {
-            mExit = true;
-        }
+    int32_t rc = mSS.cancelWaitConnect();
+    if (!SUCCEED(rc)) {
+        LOGE(mModule, "Failed to cancel wait client");
     }
 
     return rc;
@@ -301,7 +294,7 @@ int32_t SiriusCore::destruct()
     }
 
     if (SUCCEED(rc)) {
-        rc = abortOnceFunc();
+        rc = exitServerLoop();
         if (!SUCCEED(rc)) {
             final |= rc;
             LOGE(mModule, "Failed to abort run once thread");
@@ -350,14 +343,9 @@ int32_t SiriusCore::destruct()
     }
 
     if (SUCCEED(rc)) {
-        if (NOTNULL(mRunOnce)) {
-            rc = mRunOnce->exit();
-            if (!SUCCEED(rc)) {
-                final |= rc;
-                LOGE(mModule, "Failed to exit rcun once thread, %d", rc);
-                RESETRESULT(rc);
-            }
-            SECURE_DELETE(mRunOnce);
+        if (NOTNULL(mThreads)) {
+            mThreads->removeInstance();
+            mThreads = NULL;
         }
     }
 
@@ -651,14 +639,12 @@ int32_t SiriusCore::getHeader(Header &header)
     return mCtl.getHeader(header)
 }
 
-SiriusCore:: SiriusCore() :
+SiriusCore::SiriusCore() :
     mConstructed(false),
     mModule(MODULE_SIRIUS_CORE),
-    mExit(false),
     mClientReady(false),
     mCtlFd(-1),
-    mCtlMem(NULL),
-    mEvtSvr(NULL)
+    mCtlMem(NULL)
 {
     for (int32_t i = 0; i < REQUEST_TYPE_MAX_INVALID; i++) {
         mRequests[i] = NULL;
@@ -671,35 +657,6 @@ SiriusCore::~SiriusCore()
     if (mConstructed) {
         destruct();
     }
-}
-
-int32_t SiriusCore::RunOnce::run(RunOnceFunc *func, void *in, void *out)
-{
-    int32_t rc = NO_ERROR;
-
-    if (ISNULL(func)) {
-        LOGE(MODULE_RUN_ONCE_THREAD, "func can't be null");
-        rc = PARAM_INVALID;
-    }
-
-    if (SUCCEED(rc)) {
-        rc = RunOnceThread::run(func, in, out);
-        if (!SUCCEED(rc)) {
-            LOGE(MODULE_RUN_ONCE_THREAD, "Failed to start thread");
-        }
-    }
-
-    return rc;
-}
-
-int32_t SiriusCore::RunOnce::exit()
-{
-    return RunOnceThread::exit();
-}
-
-bool SiriusCore::RunOnce::isRuning()
-{
-    return RunOnceThread::isRuning();
 }
 
 };

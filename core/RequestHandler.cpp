@@ -1,5 +1,6 @@
 #include "configuration.h"
 #include "RequestHandler.h"
+#include "MemMgmt.h"
 
 namespace sirius {
 
@@ -22,7 +23,6 @@ RequestHandler::RequestHandler(HandlerOpsIntf *ops,
     mMemShared(false),
     mMemNum(memNum),
     mMem(NULL),
-    mRunOnce(NULL),
     mOps(ops)
 {
     ASSERT_LOG(mModule, NOTNULL(ops), "Ops shouldn't be NULL");
@@ -78,13 +78,9 @@ int32_t RequestHandler::destruct()
     }
 
     if (SUCCEED(rc)) {
-        if (NOTNULL(mRunOnce)) {
-            rc = abort();
-            if (!SUCCEED(rc)) {
-                LOGE(mModule, "Failed to exit run once thread.");
-                final |= rc;
-                rc = NO_ERROR;
-            }
+        if (NOTNULL(mThreads)) {
+            mThreads->removeInstance();
+            mThreads = NULL;
         }
     }
 
@@ -147,7 +143,7 @@ int32_t RequestHandler::allocMem()
     }
 
     if (SUCCEED(rc)) {
-        mMem = (MemoryInfo *)malloc(sizeof(MemoryInfo) * mMemNum);
+        mMem = (MemoryInfo *)Malloc(sizeof(MemoryInfo) * mMemNum);
         if (ISNULL(mMem)) {
             LOGE(mModule, "Failed to alloc memory");
             rc = NO_MEMORY;
@@ -407,30 +403,29 @@ int32_t RequestHandler::onClientReady()
 {
     int32_t rc = NO_ERROR;
 
-    if (NOTNULL(mRunOnce)) {
-        LOGE(mModule, "Run once thread already started.");
-        rc = ALREADY_EXISTS;
-    }
-
     if (SUCCEED(rc)) {
-        mRunOnce = new RunOnce();
-        if (ISNULL(mRunOnce)) {
-            LOGE(mModule, "Failed to new run once thread, %d", rc);
-            rc = NO_MEMORY;
+        mThreads = ThreadPoolEx::getInstance();
+        if (ISNULL(mThreads)) {
+            LOGE(mModule, "Failed to get thread pool");
+            rc = UNKNOWN_ERROR;
         }
     }
 
     if (SUCCEED(rc)) {
-        rc = mRunOnce->run(this, NULL, NULL);
+        rc = mThreads->run(
+            [this]() -> int32_t {
+                return startServerLoop();
+            }
+        );
         if (!SUCCEED(rc)) {
-            LOGE(mModule, "Failed to run once thread, %d", rc);
+            LOGE(mModule, "Failed to run on thread, %d", rc);
         }
     }
 
     return rc;
 }
 
-int32_t RequestHandler::runOnceFunc(void * /*in*/, void * /*out*/)
+int32_t RequestHandler::startServerLoop()
 {
     int32_t rc = NO_ERROR;
 
@@ -588,28 +583,23 @@ int32_t RequestHandler::enqueue(int32_t id)
 int32_t RequestHandler::abort()
 {
     int32_t rc = NO_ERROR;
-    int32_t final = rc;
 
-    if (ISNULL(mRunOnce)) {
-        LOGE(mModule, "Run once thread alreay exited.");
+    if (ISNULL(mThreads)) {
+        LOGE(mModule, "Server thread alreay exited.");
         rc = NOT_EXIST;
     }
 
     if (SUCCEED(rc)) {
-        if (NOTNULL(mRunOnce)) {
-            rc = mRunOnce->exit();
-            if (!SUCCEED(rc)) {
-                LOGE(mModule, "Failed to abort to once thread, %d", rc);
-                final |= rc;
-                rc = NO_ERROR;
-            }
+        rc = exitServerLoop();
+        if (!SUCCEED(rc)) {
+            LOGE(mModule, "Failed to abort thread loop, %d", rc);
         }
     }
 
     if (SUCCEED(rc)) {
-        if (NOTNULL(mRunOnce)) {
-            delete mRunOnce;
-            mRunOnce = NULL;
+        if (NOTNULL(mThreads)) {
+            mThreads->removeInstance();
+            mThreads = NULL;
         }
     }
 
@@ -621,55 +611,14 @@ int32_t RequestHandler::getExpectedBufferSize()
     return getHeaderSize() + getDataSize();
 }
 
-int32_t RequestHandler::onOnceFuncFinished(int32_t /*rc*/)
+int32_t RequestHandler::exitServerLoop()
 {
-    // will be here when request handler been destructed
-    return NO_ERROR;
-}
-
-int32_t RequestHandler::abortOnceFunc()
-{
-    int32_t rc = NO_ERROR;
-
-    if (SUCCEED(rc)) {
-        if (mRunOnce.isRuning()) {
-            rc = mSSSM.cancelWaitMsg();
-            if (!SUCCEED(rc)) {
-                LOGE(mModule, "Failed to cancel waitting msg, %d");
-            }
-        }
+    int32_t rc = mSSSM.cancelWaitMsg();
+    if (!SUCCEED(rc)) {
+        LOGE(mModule, "Failed to cancel waitting msg, %d");
     }
 
     return rc;
-}
-
-int32_t RequestHandler::RunOnce::run(RunOnceFunc *func, void *in, void *out)
-{
-    int32_t rc = NO_ERROR;
-
-    if (ISNULL(func)) {
-        LOGE(MODULE_RUN_ONCE_THREAD, "func can't be null");
-        rc = PARAM_INVALID;
-    }
-
-    if (SUCCEED(rc)) {
-        rc = RunOnceThread::run(func, in, out);
-        if (!SUCCEED(rc)) {
-            LOGE(MODULE_RUN_ONCE_THREAD, "Failed to start thread");
-        }
-    }
-
-    return rc;
-}
-
-int32_t RequestHandler::RunOnce::exit()
-{
-    return RunOnceThread::exit();
-}
-
-bool RequestHandler::RunOnce::isRuning()
-{
-    return RunOnceThread::isRuning();
 }
 
 };

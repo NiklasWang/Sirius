@@ -103,7 +103,6 @@ int32_t SocketServerStateMachine::setClientFd(int32_t fd)
 
 int32_t SocketServerStateMachine::cancelWaitConnect()
 {
-    // Don't post to state machine
     mCancelConnect = true;
     return NO_ERROR;
 }
@@ -115,7 +114,6 @@ bool SocketServerStateMachine::waitingMsg()
 
 int32_t SocketServerStateMachine::cancelWaitMsg()
 {
-    // Don't post to state machine
     mCancelMsg = true;
     return NO_ERROR;
 }
@@ -225,11 +223,8 @@ int32_t SocketServerStateMachine::processTask(void *dat)
                 LOGE(mModule, "Failed to poll data while sleeping, %d", rc);
             }
         } break;
-        case CMD_CANCEL_WAIT_CONNECTION: {
-            mCancelConnect = true;
-            rc = NO_ERROR;
-        } break;
         case CMD_RECEIVE_MSG: {
+            mCancelMsg   = false;
             char *data   = info->u.msg->msg;
             int32_t *len = &info->u.msg->len;
             int32_t max_len = info->u.msg->max_len;
@@ -321,7 +316,6 @@ const char * const SocketServerStateMachine::kStateStr[] = {
 const char * const SocketServerStateMachine::kCmdStr[] = {
     [CMD_START_SERVER]    = "start server",
     [CMD_WAIT_CONNECTION] = "parpare accept client",
-    [CMD_CANCEL_WAIT_CONNECTION] = "cancel wait for client",
     [CMD_RECEIVE_MSG]     = "receive message",
     [CMD_SEND_MSG]        = "send message",
     [CMD_RECEIVE_FD]      = "receive fd",
@@ -410,20 +404,6 @@ int32_t SocketServerStateMachine::procCmdStartedState(
                     LOGD(mModule, "Client connect to server.");
                 } else {
                     LOGE(mModule, "Failed to connect client.");
-                }
-            }
-        }; break;
-        case CMD_CANCEL_WAIT_CONNECTION: {
-            cmd_info info;
-            info.cmd = cmd;
-            rc = executeOnThread(&info);
-            if (SUCCEED(rc)) {
-                info.sync.wait();
-                rc = info.rc;
-                if (SUCCEED(rc)) {
-                    LOGD(mModule, "Cancelled to wait for connection");
-                } else {
-                    LOGE(mModule, "Failed to cancelled for wait connection.");
                 }
             }
         }; break;

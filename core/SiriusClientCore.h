@@ -10,7 +10,6 @@
 namespace sirius {
 
 class SiriusClientCore :
-    public RunOnceFunc,
     public noncopyable {
 public:
     int32_t prepare();

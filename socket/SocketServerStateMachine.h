@@ -32,7 +32,6 @@ private:
     enum cmd_type {
         CMD_START_SERVER,
         CMD_WAIT_CONNECTION,
-        CMD_CANCEL_WAIT_CONNECTION,
         CMD_RECEIVE_MSG,
         CMD_SEND_MSG,
         CMD_RECEIVE_FD,
