@@ -32,7 +32,6 @@ public:
     virtual ~ServerClientControl();
 
 private:
-    int64_t currentUs();
     struct RequestMemory;
     int32_t findClientMemory(RequestType type,
         int32_t fd, RequestMemory **mem);

@@ -1,132 +1,80 @@
 #include "common.h"
 #include "EventClient.h"
-#include "SiriusClientCore.h"
 
 namespace sirius {
 
-int32_t EventClient::sendEvent(
-    int32_t evt, int32_t arg1, int32_t arg2)
+EventClient::EventClient() :
+    RequestHandlerClient(
+        EXTENDED_EVENT,
+        "Extended Event Request Client",
+        REQUEST_HANDLER_NO_MEMORY_SHARE),
+    mModule(MODULE_PREVIEW_REQUEST),
+{
+}
+
+EventClient::~EventClient()
+{
+    destruct();
+}
+
+int32_t EventClient::construct()
+{
+    return RequestHandlerClient::construct();
+}
+
+int32_t EventClient::destruct()
+{
+    return RequestHandlerClient::destruct();
+}
+
+int32_t EventClient::onEventReady(int32_t event, int32_t arg1, int32_t arg2)
 {
     int32_t rc = NO_ERROR;
 
     if (SUCCEED(rc)) {
-        if (ISNULL(mCore)) {
-            LOGE(mModule, "Not constructed.");
-            rc = NOT_INITED;
-        }
-    }
-
-    if (SUCCEED(rc)) {
-        if (!mCore->requested(mType)) {
-            LOGE(mModule, "Event not requested, abandon evt "
-                "%d %d %dthis time.", evt, arg1, arg2);
+        if (!requested()) {
+            LOGD(mModule, "%d not requested, abandon this time.", getType());
             rc = NOT_REQUIRED;
         }
     }
 
     if (SUCCEED(rc)) {
-        if (!mSCSM.connected()) {
-            rc = mSCSM.connectServer();
+        if (!mReady) {
+            rc = prepare();
             if (!SUCCEED(rc)) {
-                LOGE(mModule, "Failed to connect to server, "
-                    "abandon evt %d %d %d this time.", evt, arg1, arg2);
+                LOGE(mModule, "Failed to prepare request client handler, %d", rc);
             }
         }
     }
 
     if (SUCCEED(rc)) {
-        EvtInfo e(evt, arg1, arg2);
-        rc = convertEvtToMsg(mMsg, &e);
+        char msg[SOCKET_DATA_MAX_LEN];
+        sprintf(msg, SOCKET_EVENT_REQUEST_FORMAT "%d %d %d", event, arg1, arg2);
+        rc = mSC.sendMsg(msg, strlen(msg));
         if (!SUCCEED(rc)) {
-            LOGE(mModule, "Failed to convert evt to msg, %d", rc);
-        }
-    }
-
-    if (SUCCEED(rc)) {
-        rc = mSCSM.sendMsg(mMsg, strlen(mMsg));
-        if (!SUCCEED(rc)) {
-            LOGE(mModule, "Failed to send msg \"%s\" to server, %d", mMsg, rc);
+            LOGE(mModule, "Failed to send msg to server, %d", rc);
         }
     }
 
     return rc;
 }
 
-int32_t EventClient::convertEvtToMsg(char *msg, EvtInfo *evt)
+int32_t EventClient::sizeOfHeader()
 {
-    sprintf(msg, SOCKET_EVENT_REQUEST_FORMAT " %d %d %d",
-        evt->evt, evt->arg1, evt->arg2);
+    return 0;
+}
 
+int32_t EventClient::sizeOfData(void *header)
+{
+    return 0;
+}
+
+int32_t EventClient::copyDataToServer(
+    uint8_t * /*dst*/, void * /*header*/, uint8_t * /*src*/)
+{
     return NO_ERROR;
 }
 
-EventClient::EvtInfo::EvtInfo(
-    int32_t _evt, int32_t _arg1, int32_t _arg2) :
-    evt(_evt),
-    arg1(_arg1),
-    arg2(_arg2)
-{
-}
-
-EventClient::EventClient() :
-    mConstructed(false),
-    mModule(MODULE_EVT_REQUEST_CLIENT),
-    mType(EXTENDED_EVENT),
-    mName("Extend Event Request"),
-    mCore(NULL)
-{}
-
-EventClient::~EventClient()
-{
-    if (mConstructed) {
-        destruct();
-    }
-}
-
-int32_t EventClient::construct()
-{
-    int32_t rc = NO_ERROR;
-
-    if (ISNULL(mCore)) {
-        mCore = SiriusClientCore::getInstance();
-        if (ISNULL(mCore)) {
-            LOGE(mModule, "Failed to construct event request");
-            rc = UNKNOWN_ERROR;
-        }
-    }
-
-    if (SUCCEED(rc)) {
-        rc = mSCSM.construct();
-        if (!SUCCEED(rc)) {
-            LOGE(mModule, "Failed to construct socket state machine, %d", rc);
-        }
-    }
-
-    return rc;
-}
-
-int32_t EventClient::destruct()
-{
-    if (NOTNULL(mCore)) {
-        mCore = NULL;
-        SiriusClientCore::removeInstance();
-    }
-
-    if (!mSCSM.construct()) {
-        LOGE(mModule, "Failed to destruct socket state machine.");
-    }
-
-    return NO_ERROR;
-}
-
-RequestType EventClient::type()
-{
-    return mType;
-}
-
-const char *EventClient::name()
-{
-    return mName;
 }
 
 };

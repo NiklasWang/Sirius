@@ -10,7 +10,6 @@ RequestHandlerClient::RequestHandlerClient(RequestType type, const char *name, u
     mName(name),
     mConnected(false),
     mReady(false),
-    mThreads(NULL),
     mMemNum(0),
     mMemMaxNum(maxNum),
     mMemMap(NULL)
@@ -52,16 +51,18 @@ int32_t RequestHandlerClient::construct()
         rc = ALREADY_INITED;
     }
 
-    if (ISNULL(mMemMap)) {
-        mMemMap = (MemoryMap *)Malloc(sizeof(MemoryMap) * mMemMaxNum);
-        if (ISNULL(mMemMap)) {
-            LOGE(mModule, "Failed to alloc %d bytes.",
-                sizeof(MemoryMap) * mMemMaxNum);
-        } else {
-            for (int32_t i = 0; i < mMemMaxNum; i++) {
-                mMemMap[i].fd   = -1;
-                mMemMap[i].mem  = NULL;
-                mMemMap[i].size = 0;
+    if (SUCCEED(rc)) {
+        if (ISNULL(mMemMap) && mMemMaxNum > 0) {
+            mMemMap = (MemoryMap *)Malloc(sizeof(MemoryMap) * mMemMaxNum);
+            if (ISNULL(mMemMap)) {
+                LOGE(mModule, "Failed to alloc %d bytes.",
+                    sizeof(MemoryMap) * mMemMaxNum);
+            } else {
+                for (int32_t i = 0; i < mMemMaxNum; i++) {
+                    mMemMap[i].fd   = -1;
+                    mMemMap[i].mem  = NULL;
+                    mMemMap[i].size = 0;
+                }
             }
         }
     }
@@ -70,14 +71,6 @@ int32_t RequestHandlerClient::construct()
         rc = mSC.construct();
         if (!SUCCEED(rc)) {
             LOGE(mModule, "Failed to construct socket state machine, %d", rc);
-        }
-    }
-
-    if (SUCCEED(rc)) {
-        mThreads = ThreadPoolEx::getInstance();
-        if (ISNULL(mThreads)) {
-            LOGE(mModule, "Failed to get thread pool");
-            rc = NOT_READY;
         }
     }
 
@@ -112,13 +105,6 @@ int32_t RequestHandlerClient::destruct()
             final |= rc;
             LOGE(mModule, "Failed to destruct socket state machine, %d", rc);
             RESETRESULT(rc);
-        }
-    }
-
-    if (SUCCEED(rc)) {
-        if (NOTNULL(mThreads)) {
-            mThreads->removeInstance();
-            mThreads = NULL;
         }
     }
 
@@ -166,8 +152,8 @@ int32_t RequestHandlerClient::prepare()
     }
     
     if (SUCCEED(rc)) {
-        if (!mCore.ready()) {
-            rc = mCore.prepare();
+        if (!kCore.ready()) {
+            rc = kCore.prepare();
             if (!SUCCEED(rc)) {
                 LOGI(mModule, "Failed to prepare sirius client core, "
                     "Server may not started, %s %d", strerror(errono), rc);
@@ -304,7 +290,7 @@ int32_t RequestHandlerClient::acceptSingleMemory()
     }
 
     if (SUCCEED(rc)) {
-        rc = mCore.getMemSize(getType(), &size);
+        rc = kCore.getMemSize(getType(), &size);
         if (!SUCCEED(rc)) {
             LOGE(mModule, "Failed to send msg to server, %d", rc);
         }
@@ -315,7 +301,7 @@ int32_t RequestHandlerClient::acceptSingleMemory()
     }
 
     if (SUCCEED(rc)) {
-        rc = mCore.importBuf(&buf, clientfd, size);
+        rc = kCore.importBuf(&buf, clientfd, size);
         if (!SUCCEED(rc)) {
             LOGE(mModule, "Failed to import memory for fd %d size %d, %d",
                 clientfd, size, rc);
@@ -333,7 +319,7 @@ int32_t RequestHandlerClient::acceptSingleMemory()
         rc = addMemoryMap(buf, clientfd, size);
         if (!SUCCEED(rc)) {
             LOGE(mModule, "Failed to record memory map, %d", rc);
-            mCore.releaseBuf(buf);
+            kCore.releaseBuf(buf);
         }
     }
 
@@ -357,7 +343,7 @@ int32_t RequestHandlerClient::convertToRequestType(
             LOGE(mModule, "Invalid msg, \"%s\"", msg);
             rc = NOT_FOUND;
         } else {
-            result = gRequestTypeMap[type];
+            result = kRequestTypeMap[type];
         }
     }
 
@@ -371,8 +357,8 @@ bool RequestHandlerClient::requested()
     bool result = false;
 
     if (SUCCEED(rc)) {
-        if (!mCore.ready()) {
-            rc = mCore.prepare();
+        if (!kCore.ready()) {
+            rc = kCore.prepare();
             if (!SUCCEED(rc)) {
                 LOGI(mModule, "Failed to prepare sirius client core, %d", rc);
             }
@@ -380,7 +366,7 @@ bool RequestHandlerClient::requested()
     }
 
     if (SUCCEED(rc)) {
-        if (mCore.requested(getType())) {
+        if (kCore.requested(getType())) {
             result = true;
         }
     }
@@ -429,18 +415,18 @@ int32_t RequestHandlerClient::findMemoryMap(int32_t fd, void **mem, int32_t *siz
 
 int32_t RequestHandlerClient::releaseAllMems()
 {
-    int32_t rc = NO_ERROR;
-
-    for (int32_t i = 0; i < mMemNum; i++) {
-        if (mMemMap[i].mem != NULL) {
-            mCore.releaseBuf(mMemMap[i].mem);
-            mMemMap[i].fd = -1;
-            mMemMap[i].mem = NULL;
-            mMemMap[i].size = 0;
+    if (NOTNULL(mMemMap)) {
+        for (int32_t i = 0; i < mMemNum; i++) {
+            if (mMemMap[i].mem != NULL) {
+                kCore.releaseBuf(mMemMap[i].mem);
+                mMemMap[i].fd = -1;
+                mMemMap[i].mem = NULL;
+                mMemMap[i].size = 0;
+            }
         }
     }
 
-    return rc;
+    return NO_ERROR;
 }
 
 int32_t RequestHandlerClient::onDataReady(void *header, uint8_t *dat)
@@ -467,7 +453,7 @@ int32_t RequestHandlerClient::onDataReady(void *header, uint8_t *dat)
     }
 
     if (SUCCEED(rc)) {
-        rc = mCore.getUsedMem(getType(), &fd);
+        rc = kCore.getUsedMem(getType(), &fd);
         if (rc == NOT_FOUND) {
             LOGI(mModule, "Sirius server memory all full, skip this frame");
         } else if (!SUCCEED(rc)) {
@@ -499,14 +485,14 @@ int32_t RequestHandlerClient::onDataReady(void *header, uint8_t *dat)
     }
 
     if (SUCCEED(rc)) {
-        rc = copyDataToServer((uint8_t *)mem + sizeOfHeader(), dat);
+        rc = copyDataToServer((uint8_t *)mem + sizeOfHeader(), header, dat);
         if (!SUCCEED(rc)) {
             LOGE(mModule, "Failed to copy to server, %d", rc);
         }
     }
 
     if (SUCCEED(rc)) {
-        rc = mCore.setMemStatus(getType(), fd, FRESH_MEMORY);
+        rc = kCore.setMemStatus(getType(), fd, FRESH_MEMORY);
         if (!SUCCEED(rc)) {
             LOGE(mModule, "Failed to renew memory status, %d", rc);
         }
@@ -538,7 +524,7 @@ int32_t RequestHandlerClient::notifyDataReady(int32_t fd)
     return rc;
 }
 
-const RequestType SiriusCore::gRequestTypeMap[] = {
+const RequestType SiriusCore::kRequestTypeMap[] = {
     [PREVIEW_NV21]   = PREVIEW_NV21,
     [PICTURE_NV21]   = PICTURE_NV21,
     [PICTURE_BAYER]  = PICTURE_BAYER,

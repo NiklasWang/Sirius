@@ -3,59 +3,35 @@
 
 #include "modules.h"
 #include "SiriusIntf.h"
-#include "ClientRequestIntf.h"
+#include "common.h"
+#include "RequestHandlerClient.h"
 
 namespace sirius {
 
-class SiriusClientCore;
-
-class YuvPictureRequestClient :
-    public ClientRequestIntf {
+class YuvPictureClient :
+    public RequestHandlerClient,
+    public noncopyable {
 public:
-    int32_t onYuvPictureFrameReady(int32_t w, int32_t h,
-        int32_t stride, int32_t scanline, void *data);
+    int32_t onYuvPictureReady(int32_t w, int32_t h,
+        int32_t stride, int32_t scanline, void *data, int64_t ts = 0LL);
 
 public:
-    virtual int32_t copyHeader(void *dst, int32_t maxSize) override;
-    virtual int32_t copyData(void *dst, int32_t maxSize) override;
-    virtual int32_t sizeOfHeader() override;
-    virtual RequestType type() override;
-    virtual const char *name() override;
+    int32_t sizeOfHeader() override;
+    int32_t sizeOfData(void *header) override;
+    int32_t copyDataToServer(uint8_t *dst, void *header, uint8_t *src) override;
 
 public:
     int32_t construct();
     int32_t destruct();
-    YuvPictureRequestClient();
-    virtual ~YuvPictureRequestClient();
+    YuvPictureClient();
+    virtual ~YuvPictureClient();
 
 private:
-    int32_t removeStrideCopyFrame(void *dst);
-
-private:
-    YuvPictureRequestClient(const YuvPictureRequestClient &rhs);
-    YuvPictureRequestClient &operator=(const YuvPictureRequestClient &rhs);
-
-private:
-    enum PictureFormat {
-        PICTURE_FORMAT_NV21,
-    };
-
-    struct YuvPictureSize {
-        int32_t w;
-        int32_t h;
-        int32_t stride;
-        int32_t scanline;
-        int32_t  size;
-        PictureFormat format;
-        void   *data;
-    };
+    int32_t CopyFrameWithoutStride(
+        uint8_t *dst, PictureNV21Header *header, uint8_t *src);
 
 private:
     ModuleType  mModule;
-    RequestType mType;
-    const char * const mName;
-    YuvPictureSize     mLastSize;
-    SiriusClientCore  *mCore;
 };
 
 };

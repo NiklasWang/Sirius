@@ -1,3 +1,4 @@
+#include "TimeEx.h"
 #include "ServerClientControl.h"
 
 namespace sirius {
@@ -261,17 +262,6 @@ int32_t ServerClientControl::init(void *mem, int32_t size, bool init)
 bool ServerClientControl::ready()
 {
     return mReady;
-}
-
-int64_t ServerClientControl::currentUs()
-{
-    int64_t t = 0;
-
-    struct timeval tv;
-    gettimeofday(&tv, NULL);
-    t = (int64_t)tv.tv_usec + tv.tv_sec * 1000000ll;
-
-    return t;
 }
 
 };
