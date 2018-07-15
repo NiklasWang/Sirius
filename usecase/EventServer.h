@@ -12,7 +12,7 @@ class EventServer :
 public:
     int32_t getHeaderSize() override;
     int32_t getDataSize() override;
-    int32_t runOnceFunc(void *in, void *out) override;
+    int32_t startServerLoop() override;
 
 public:
     EventServer(HandlerOpsIntf *ops);

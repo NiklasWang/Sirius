@@ -13,8 +13,6 @@
 
 namespace sirius {
 
-class EventServer;
-
 class SiriusCore :
     public SiriusIntf,
     public HandlerOpsIntf,
@@ -45,8 +43,8 @@ public:
     int32_t destruct();
 
 private:
-    int32_t startServerLoop();
-    int32_t exitServerLoop();
+    virtual int32_t startServerLoop();
+    virtual int32_t exitServerLoop();
     bool requested(RequestType type);
     int32_t createRequestHandler(RequestType type);
     RequestHandler *createHandler(RequestType type);

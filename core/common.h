@@ -81,7 +81,7 @@ enum err_raeson {
             _result; \
         })
 
-#define COMPARE_SAME_STRING_LEN(LHS, RHS, len) \
+#define COMPARE_SAME_LEN_STRING(LHS, RHS, len) \
         ({ \
             bool _result = true; \
             if (NOTNULL(LHS) && NOTNULL(RHS)) { \

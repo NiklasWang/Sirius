@@ -21,11 +21,13 @@ public:
     virtual const char *getName() override;
 
 public:
+    virtual int32_t construct() override;
+    virtual int32_t destruct() override;
+
+protected:
     RequestHandler(HandlerOpsIntf *ops,
         RequestType type, const char *name, uint32_t memNum);
     virtual ~RequestHandler();
-    virtual int32_t construct() override;
-    virtual int32_t destruct() override;
 
 protected:
     virtual int32_t getHeaderSize() = 0;

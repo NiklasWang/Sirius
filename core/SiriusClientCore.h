@@ -16,12 +16,12 @@ public:
     bool ready();
 
     bool requested(RequestType type);
-    int32_t importBuf(void **buf, int32_t len, int32_t *fd) override;
-    int32_t releaseBuf(void *buf) override;
+    int32_t importBuf(void **buf, int32_t fd, int32_t len);
+    int32_t releaseBuf(void *buf);
     int32_t getUsedMem(RequestType type, int32_t *fd);
-    int32_t setMemStatus(RequestType type, int32_t fd, bool fresh = USED_MEMORY) override;
-    int32_t getMemStatus(RequestType type, int32_t fd, bool *fresh) override;
-    int32_t getMemSize(RequestType type, int32_t *size) override;
+    int32_t setMemStatus(RequestType type, int32_t fd, bool fresh = USED_MEMORY);
+    int32_t getMemStatus(RequestType type, int32_t fd, bool *fresh);
+    int32_t getMemSize(RequestType type, int32_t *size);
     int32_t setHeader(Header &header);
 
 public:

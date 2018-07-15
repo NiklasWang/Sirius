@@ -14,7 +14,7 @@ int32_t EventServer::getDataSize()
     return 0;
 }
 
-int32_t EventServer::runOnceFunc(void *in, void *out)
+int32_t EventServer::startServerLoop()
 {
     int32_t rc = NO_ERROR;
 

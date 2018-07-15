@@ -1,5 +1,4 @@
 #include "SiriusCore.h"
-#include "EventRequestServer.h"
 
 namespace sirius {
 

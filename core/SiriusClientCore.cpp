@@ -18,6 +18,7 @@ SiriusClientCore::~SiriusClientCore()
     if (mConstructed) {
         destruct();
     }
+    pthread_mutex_destroy(&mLocker);
 }
 
 
@@ -65,7 +66,7 @@ int32_t SiriusClientCore::prepare()
     int32_t rc = NO_ERROR;
     int32_t fd = -1;
     int32_t size = 0;
-    bool    locked = true;
+    bool locked  = false;
 
     if (mReady) {
         LOGE(mModule, "Already prepared.");
@@ -85,7 +86,7 @@ int32_t SiriusClientCore::prepare()
             rc = mSC.connectServer();
             if (!SUCCEED(rc)) {
                 LOGD(mModule, "Failed to connect server, "
-                    "may not started, %s", strerror(errono));
+                    "may not started, %s %d", strerror(errono), rc);
                 rc = NOT_EXIST;
             } else {
                 mConnected = true;
@@ -204,7 +205,6 @@ int32_t SiriusClientCore::destruct()
     }
 
     if (SUCCEED(rc)) {
-        pthread_mutex_destroy(&mutex);
         mReady = false;
         mConnected = false;
     }
@@ -229,9 +229,9 @@ bool SiriusClientCore::requested(RequestType type)
     return ready() && mCtl.requested(type);
 }
 
-int32_t SiriusClientCore::importBuf(void **buf, int32_t len, int32_t *fd)
+int32_t SiriusClientCore::importBuf(void **buf, int32_t fd, int32_t len)
 {
-    return mBufMgr.import(buf, len, fd);
+    return mBufMgr.import(buf, fd, len);
 }
 
 int32_t SiriusClientCore::releaseBuf(void *buf)

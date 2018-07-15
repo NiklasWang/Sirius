@@ -3,55 +3,43 @@
 
 #include "common.h"
 #include "SiriusIntf.h"
-#include "ClientRequestIntf.h"
-#include "RunOnceThread.h"
-#include "ServerClientControl.h"
-#include "IonBufferMgr.h"
+#include "ThreadPoolEx.h"
+#include "SiriusClientCore.h"
 #include "SocketClientStateMachine.h"
 
 namespace sirius {
 
-class RequestHandlerClient :
-    public RunOnceFunc,
-    public noncopyable {
+class RequestHandlerClient
+{
 public:
-    static RequestHandlerClient *getInstance();
-    static uint32_t removeInstance();
+    bool requested();
+    int32_t onDataReady(void *header, uint8_t *dat);
 
-public:
-    int32_t onDataReady(ClientRequestIntf *intf, RequestType type);
-    bool requested(RequestType type);
+protected:
+    virtual int32_t sizeOfHeader() = 0;
+    virtual int32_t sizeOfData(void *header) = 0;
+    virtual int32_t copyDataToServer(uint8_t *dst, uint8_t *src) = 0;
 
-private:
-    class RunOnce :
-        public RunOnceThread {
-    public:
-        int32_t run(RunOnceFunc *func, void *in, void *out);
-        int32_t exit();
-        bool    isRuning();
-    };
-
-private:
-    RequestHandlerClient();
+protected:
+    RequestHandlerClient(RequestType type, const char *name, uint32_t memNum);
     virtual ~RequestHandlerClient();
+
+public:
     int32_t construct();
     int32_t destruct();
 
 private:
-    int32_t waitForPushRequestMemory();
-    int32_t acceptSingleRequestMemory();
+    const char *getName();
+    RequestType getType();
+    int32_t syncServerMemory();
+    int32_t acceptSingleMemory();
     int32_t addMemoryMap(RequestType type,
         void *mem, int32_t fd, int32_t size);
     int32_t findMemoryMap(RequestType type,
         int32_t fd, void **mem, int32_t *size);
     int32_t releaseAllMems();
-    int32_t copyToServer(ClientRequestIntf *intf,
-        void *dst, int32_t maxSize);
-
-private:
-    int32_t runOnceFunc(void *in, void *out) override;
-    int32_t onOnceFuncFinished(int32_t rc) override;
-    int32_t abortOnceFunc() override;
+    int32_t notifyDataReady(int32_t fd);
+    int32_t convertToRequestType(char *msg, const char *prefix, RequestType &result);
 
 private:
     struct MemoryMap {
@@ -61,15 +49,22 @@ private:
     };
 
 private:
-    bool         mConstructed;
-    ModuleType   mModule;
-    RunOnce      mRunOnce;
-    bool         mAbortOnce;
-    MemoryMap   *mMemMap;
+    bool          mConstructed;
+    ModuleType    mModule;
+    RequestType   mType;
+    const char   *mName;
+    bool          mConnected;
+    bool          mReady;
+    ThreadPoolEx *mThreads;
+    int32_t       mMemNum;
+    int32_t       mMemMaxNum;
+    MemoryMap    *mMemMap;
     SocketClientStateMachine mSC;
+    pthread_mutex_t          mLocker;
 
 private:
     static SiriusClientCore  mCore;
+    static const RequestType gRequestTypeMap[REQUEST_TYPE_MAX_INVALID];
 };
 
 };
