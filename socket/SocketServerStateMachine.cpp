@@ -125,7 +125,8 @@ SocketServerStateMachine::SocketServerStateMachine() :
     mStatus(STATUS_UNINITED),
     mWaitingMsg(false),
     mCancelConnect(false),
-    mModule(MODULE_SOCKET_SERVER_SM)
+    mModule(MODULE_SOCKET_SERVER_SM),
+    mThread(getModuleName(mModule))
 {
     if (kServerFd != -1) {
         updateToNewStatus(STATUS_STARTED);
@@ -148,7 +149,7 @@ int32_t SocketServerStateMachine::construct()
     }
 
     if (SUCCEED(rc)) {
-        rc = constructThread();
+        rc = mThread.construct();
         if (!SUCCEED(rc)) {
             LOGE(mModule, "Failed to construct thread");
         }
@@ -180,7 +181,7 @@ int32_t SocketServerStateMachine::destruct()
     }
 
     if (SUCCEED(rc)) {
-        rc = destructThread();
+        rc = mThread.destruct();
         if (!SUCCEED(rc)) {
             LOGE(mModule, "Failed to destruct thread");
         }
@@ -200,10 +201,9 @@ int32_t SocketServerStateMachine::destruct()
     return RETURNIGNORE(rc, NOT_INITED);
 }
 
-int32_t SocketServerStateMachine::processTask(void *dat)
+int32_t SocketServerStateMachine::processTask(cmd_info *info)
 {
     int32_t rc = NO_ERROR;
-    cmd_info *info = static_cast<cmd_info *>(dat);
 
     switch (info->cmd) {
         case CMD_START_SERVER: {
@@ -265,11 +265,9 @@ int32_t SocketServerStateMachine::processTask(void *dat)
     return rc;
 }
 
-int32_t SocketServerStateMachine::taskDone(void *dat, int32_t result)
+int32_t SocketServerStateMachine::taskDone(cmd_info *info, int32_t result)
 {
     int32_t rc = NO_ERROR;
-    cmd_info *info = static_cast<cmd_info *>(dat);
-
     rc = info->rc = result;
 
     if (info->sync == SYNC_TYPE) {
@@ -299,7 +297,20 @@ int32_t SocketServerStateMachine::stateMachine(cmd_type cmd, void *arg)
 int32_t SocketServerStateMachine::executeOnThread(
     SocketServerStateMachine::cmd_info *task)
 {
-    return newTask((void *)task);
+    int32_t rc = mThread.runWait(
+        [this](cmd_info *_task) -> int32_t {
+            int32_t _rc = processTask(_task);
+            taskDone(_task, _rc);
+            return _rc;
+        },
+        task
+    );
+    if (!SUCCEED(rc)) {
+        LOGE(mModule, "Failed to %s on status %s, %d",
+            cmdName(task->cmd), stateName(mStatus), rc);
+    }
+
+    return rc;
 }
 
 const char * const SocketServerStateMachine::kStateStr[] = {

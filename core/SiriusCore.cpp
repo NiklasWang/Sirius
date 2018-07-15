@@ -59,7 +59,7 @@ int32_t SiriusCore::construct()
         mThreads = ThreadPoolEx::getInstance();
         if (ISNULL(mThreads)) {
             LOGE(mModule, "Failed to get thread pool");
-            rc = UNKNOWN_ERROR;
+            rc = NOT_READY;
         }
     }
 

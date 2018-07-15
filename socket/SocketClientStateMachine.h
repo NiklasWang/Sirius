@@ -3,12 +3,11 @@
 
 #include "common.h"
 #include "SyncType.h"
-#include "QueuedThread.h"
+#include "ThreadT.h"
 
 namespace sirius {
 
 class SocketClientStateMachine :
-    public QueuedThread,
     public noncopyable {
 public:
     int32_t connectServer();
@@ -87,6 +86,9 @@ private:
     status     mStatus;
     ModuleType mModule;
     int32_t    mCancelWait;
+    ThreadT<cmd_info>   mThread;
+
+private:
     static const SMFunc mFunc[];
     static const char * const kStateStr[];
     static const char * const kCmdStr[];

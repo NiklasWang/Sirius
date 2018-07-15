@@ -4,13 +4,13 @@
 #include "common.h"
 #include "configuration.h"
 #include "SyncType.h"
-#include "QueuedThread.h"
+#include "ThreadT.h"
 #include "ThreadPool.h"
 
 namespace sirius {
 
 class SocketServerStateMachine :
-    public QueuedThread {
+    public noncopyable {
 public:
     int32_t startServer();
     int32_t waitForConnect();
@@ -66,9 +66,8 @@ private:
         SyncType sync;
     };
 
-    virtual int32_t processTask(void *dat) override;
-    virtual int32_t taskDone(void *dat, int32_t rc) override;
-
+    int32_t processTask(cmd_info *dat);
+    int32_t taskDone(cmd_info *dat, int32_t rc);
     int32_t stateMachine(cmd_type cmd, void *arg);
     int32_t procCmdUninitedState(cmd_type cmd, void *arg);
     int32_t procCmdInitedState(cmd_type cmd, void *arg);
@@ -114,7 +113,7 @@ private:
     bool       mCancelConnect;
     bool       mCancelMsg;
     ModuleType mModule;
-    sp<ThreadPoolEx> mThreads;
+    ThreadT<cmd_type>   mThread;
 
 private:
     static int32_t      kServerFd;

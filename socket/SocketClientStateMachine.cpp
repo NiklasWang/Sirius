@@ -57,7 +57,8 @@ SocketClientStateMachine::SocketClientStateMachine() :
     mServerFd(-1),
     mStatus(STATUS_UNINITED),
     mModule(MODULE_SOCKET_CLIENT_SM),
-    mCancelWait(0)
+    mCancelWait(0),
+    mThread(getModuleName(mModule))
 {
 }
 
@@ -77,7 +78,7 @@ int32_t SocketClientStateMachine::construct()
     }
 
     if (SUCCEED(rc)) {
-        rc = constructThread();
+        rc = mThread.construct();
         if (!SUCCEED(rc)) {
             LOGE(mModule, "Failed to construct thread");
         }
@@ -102,7 +103,7 @@ int32_t SocketClientStateMachine::destruct()
     }
 
     if (SUCCEED(rc)) {
-        rc = destructThread();
+        rc = mThread.destruct();
         if (!SUCCEED(rc)) {
             LOGE(mModule, "Failed to destruct thread");
         }
@@ -205,7 +206,20 @@ int32_t SocketClientStateMachine::stateMachine(
 int32_t SocketClientStateMachine::executeOnThread(
     SocketClientStateMachine::cmd_info *task)
 {
-    return newTask((void *)task);
+    int32_t rc = mThread.runWait(
+        [this](cmd_info *_task) -> int32_t {
+            int32_t _rc = processTask(_task);
+            taskDone(_task, _rc);
+            return _rc;
+        },
+        task
+    );
+    if (!SUCCEED(rc)) {
+        LOGE(mModule, "Failed to %s on status %s, %d",
+            cmdName(task->cmd), stateName(mStatus), rc);
+    }
+
+    return rc;
 }
 
 const char * const SocketClientStateMachine::kStateStr[] = {

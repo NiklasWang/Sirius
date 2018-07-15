@@ -6,22 +6,20 @@ int32_t ServerCallbackThread::send(RequestType type, int32_t id, void *head, voi
 {
     int32_t rc = NO_ERROR;
 
-    Task task;
-    task.type = Task::TASK_TYPE_DAT;
-    task.request = type;
-    task.tid  = id;
-    task.head = head;
-    task.dat  = dat;
-
-    rc = newTask(&task);
-    if (!SUCCEED(rc)) {
-        LOGE(mModule, "Failed to push to thread");
-    }
-
     if (SUCCEED(rc)) {
-        if (task.sync == SYNC_TYPE) {
-            task.sync.wait();
-            rc = task.rc;
+        rc = mThreads->run(
+            [this]() -> int32_t {
+                if (NOTNULL(mCbFunc)) {
+                    mDatCnt++;
+                    rc = mCbFunc(type, id, head, dat);
+                } else {
+                    LOGE(mModule, "Data callback func not set, can't send.");
+                    rc = NOT_INITED;
+                }
+            }
+        );
+        if (!SUCCEED(rc)) {
+            LOGE(mModule, "Failed to run once thread, %d", rc);
         }
     }
 
@@ -32,21 +30,20 @@ int32_t ServerCallbackThread::send(int32_t event, int32_t arg1, int32_t arg2)
 {
     int32_t rc = NO_ERROR;
 
-    Task task;
-    task.type = Task::TASK_TYPE_EVT;
-    task.evt  = event;
-    task.arg1 = arg1;
-    task.arg2 = arg2;
-
-    rc = newTask(&task);
-    if (!SUCCEED(rc)) {
-        LOGE(mModule, "Failed to push to thread");
-    }
-
     if (SUCCEED(rc)) {
-        if (task.sync == SYNC_TYPE) {
-            task.sync.wait();
-            rc = task.rc;
+        rc = mThreads->run(
+            [this]() -> int32_t {
+                if (NOTNULL(mEvtCbFunc)) {
+                    mEvtCnt++;
+                    rc = mEvtCbFunc(event, arg1, arg2);
+                } else {
+                    LOGE(mModule, "Data callback func not set, can't send.");
+                    rc = NOT_INITED;
+                }
+            }
+        );
+        if (!SUCCEED(rc)) {
+            LOGE(mModule, "Failed to run once thread, %d", rc);
         }
     }
 
@@ -55,8 +52,8 @@ int32_t ServerCallbackThread::send(int32_t event, int32_t arg1, int32_t arg2)
 
 int32_t ServerCallbackThread::setCb(RequestCbFunc requestCb, EventCbFunc eventCb)
 {
-    mCbFunc = requestCb;
-    mCbFunc = eventCb;
+    mCbFunc    = requestCb;
+    mEvtCbFunc = eventCb;
     return NO_ERROR;
 }
 
@@ -64,7 +61,10 @@ ServerCallbackThread::ServerCallbackThread() :
     mConstructed(false),
     mModule(MODULE_SERVER_CB_THREAD),
     mCbFunc(NULL),
-    mEvtCbFunc(NULL)
+    mEvtCbFunc(NULL),
+    mThreads(NULL),
+    mEvtCnt(0),
+    mDatCnt(0)
 {
 }
 
@@ -75,50 +75,22 @@ ServerCallbackThread::~ServerCallbackThread()
     }
 }
 
-int32_t ServerCallbackThread::processTask(void *dat)
-{
-    int32_t rc = NOT_INITED;
-    Task *task = static_cast<Task *>(dat);
-
-    if (task->type == Task::TASK_TYPE_DAT) {
-        if (NOTNULL(mCbFunc)) {
-            rc = task->rc = mCbFunc(task->request, task->tid, task->head, task->dat);
-        } else {
-            LOGE(mModule, "Data callback func not set, can't send.");
-        }
-    }
-
-    if (task->type == Task::TASK_TYPE_EVT) {
-        if (NOTNULL(mEvtCbFunc)) {
-            rc = task->rc = mEvtCbFunc(task->evt, task->arg1, task->arg2);
-        } else {
-            LOGE(mModule, "Evt callback func not set, can't send.");
-        }
-    }
-
-    return rc;
-}
-
-int32_t ServerCallbackThread::taskDone(void *dat, int32_t rc)
-{
-    Task *task = static_cast<Task *>(dat);
-
-    if (!SUCCEED(rc)) {
-        LOGE(mModule, "Failed to send callback, %d", rc);
-    }
-
-    if (task->sync == SYNC_TYPE) {
-        task->sync.signal();
-    }
-
-    return NO_ERROR;
-}
-
 int32_t ServerCallbackThread::construct()
 {
     int32_t rc = NO_ERROR;
 
-    rc = constructThread();
+    if (mConstructed) {
+        rc = ALREADY_INITED;
+    }
+
+    if (SUCCEED(rc)) {
+        mThreads = ThreadPoolEx::getInstance();
+        if (ISNULL(mThreads)) {
+            LOGE(mModule, "Failed to get thread pool");
+            rc = NOT_READY;
+        }
+    }
+
     if (SUCCEED(rc)) {
         mConstructed = true;
     }
@@ -130,28 +102,26 @@ int32_t ServerCallbackThread::destruct()
 {
     int32_t rc = NO_ERROR;
 
-    if (mConstructed) {
-        rc = destructThread();
+    if (!mConstructed) {
+        rc = NOT_INITED;
+    } else {
+        mConstructed = false;
+    }
+
+    if (SUCCEED(rc)) {
+        if (NOTNULL(mThreads)) {
+            mThreads->removeInstance();
+            mThreads = NULL;
+        }
+    }
+
+    if (!SUCCEED(rc)) {
+        LOGE(mModule, "Cb thread destructed with error %d", rc);
+    } else {
+        LOGD(mModule, "Cb thread destructed");
     }
 
     return rc;
-}
-
-uint32_t ServerCallbackThread::Task::mCnt = 0;
-
-ServerCallbackThread::Task::Task(sync_type _sync) :
-    type(TASK_TYPE_DAT),
-    request(REQUEST_TYPE_MAX_INVALID),
-    tid(-1),
-    head(NULL),
-    dat(NULL),
-    evt(-1),
-    arg1(-1),
-    arg2(-1),
-    sync(_sync),
-    rc(NO_ERROR),
-    id(mCnt++)
-{
 }
 
 };
