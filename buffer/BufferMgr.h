@@ -1,9 +1,10 @@
 #ifndef _BUFFER_MANAGER_H__
 #define _BUFFER_MANAGER_H__
 
-namespace sirius {
+#include "common.h"
+#include "BufferMgrIntf.h"
 
-class BufferMgrIntf;
+namespace sirius {
 
 class BufferMgr :
     public BufferMgrIntf,
@@ -30,7 +31,4 @@ private:
 };
 
 #endif
-
-#endif
-
 

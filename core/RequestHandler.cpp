@@ -244,7 +244,7 @@ int32_t RequestHandler::shareSingleMem(int32_t fd)
     }
 
     if (SUCCEED(rc)) {
-        if (strncmp(msg, SOCKET_CLIENT_REPLY_SHARE_STR,
+        if (!COMPARE_SAME_LEN_STRING(msg, SOCKET_CLIENT_REPLY_SHARE_STR,
             strlen(SOCKET_CLIENT_REPLY_SHARE_STR))) {
             LOGE(mModule, "Client error occuried when sharing memory,"
                 " msg=\"%s\", %d", msg, rc);
@@ -269,7 +269,7 @@ int32_t RequestHandler::shareSingleMem(int32_t fd)
     }
 
     if (SUCCEED(rc)) {
-        if (strncmp(msg, SOCKET_CLIENT_REPLY_FD_STR,
+        if (!COMPARE_SAME_LEN_STRING(msg, SOCKET_CLIENT_REPLY_FD_STR,
             strlen(SOCKET_CLIENT_REPLY_FD_STR))) {
             LOGE(mModule, "Client error occuried when sharing memory,"
                 " msg=\"%s\", %d", msg, rc);

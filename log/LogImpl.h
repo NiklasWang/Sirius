@@ -30,10 +30,12 @@ void __assert_log(const ModuleType module, const unsigned char cond,
 extern int8_t gDebugController[][LOG_TYPE_MAX_INVALID + 1];
 
 #undef PLOGx
-#define PLOGx(module, level, fmt, args...)                           \
-    if (gDebugController[module][level]) {                           \
-        __debug_log(module, level, __FUNCTION__, __LINE__, fmt, ##args); \
-    }
+#define PLOGx(module, level, fmt, args...)      \
+    do {                                        \
+        if (gDebugController[module][level]) {  \                         \
+            __debug_log(module, level, __FUNCTION__, __LINE__, fmt, ##args); \
+        }                                       \
+    } while(0)
 
 #undef PLOGD
 #define PLOGD(module, fmt, args...)                \
@@ -50,6 +52,21 @@ extern int8_t gDebugController[][LOG_TYPE_MAX_INVALID + 1];
 #undef PLOGF
 #define PLOGF(module, fmt, args...)                \
     PLOGx(module, LOG_TYPE_FATAL, fmt, ##args)
+#undef PLOGDIF
+#define PLOGDIF(module, cond, fmt, args...)        \
+    do { if (cond) { PLOGx(module, LOG_TYPE_DEBUG, fmt, ##args) } } while(0)
+#undef PLOGIIF
+#define PLOGIIF(module, cond, fmt, args...)        \
+    do { if (cond) { PLOGx(module, LOG_TYPE_INFO, fmt, ##args) } } while(0)
+#undef PLOGWIF
+#define PLOGWIF(module, cond, fmt, args...)        \
+    do { if (cond) { PLOGx(module, LOG_TYPE_WARN, fmt, ##args) } } while(0)
+#undef PLOGEIF
+#define PLOGEIF(module, cond, fmt, args...)        \
+    do { if (cond) { PLOGx(module, LOG_TYPE_ERROR, fmt, ##args) } } while(0)
+#undef PLOGFIF
+#define PLOGFIF(module, cond, fmt, args...)        \
+    do { if (cond) { PLOGx(module, LOG_TYPE_FATAL, fmt, ##args) } } while(0)
 
 #undef ASSERT_PLOG
 #define ASSERT_PLOG(module, cond, fmt, args...)     \

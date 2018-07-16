@@ -1,5 +1,6 @@
 #include "SiriusImpl.h"
 #include "SiriusCore.h"
+#include "ThreadPoolEx.h"
 
 namespace sirius {
 
@@ -44,12 +45,10 @@ int32_t SiriusImpl::construct()
     }
 
     if (SUCCEED(rc)) {
+        mThreads = ThreadPoolEx::getInstance();
         if (ISNULL(mThreads)) {
-            mThreads = new ThreadPoolEx(this);
-            if (ISNULL(mThreads)) {
-                LOGE(mModule, "Failed to create thread pool");
-                rc = UNKNOWN_ERROR;
-            }
+            LOGE(mModule, "Failed to get thread pool");
+            rc = NOT_READY;
         }
     }
 
@@ -70,6 +69,13 @@ int32_t SiriusImpl::destruct()
         rc = NOT_INITED;
     } else {
         mConstructed = false;
+    }
+
+    if (SUCCEED(rc)) {
+        if (NOTNULL(mThreads)) {
+            mThreads->removeInstance();
+            mThreads = NULL;
+        }
     }
 
     if (SUCCEED(rc)) {
@@ -107,11 +113,10 @@ const char *SiriusImpl::TaskBase::whoamI()
         TYPE_MAX_INVALID : type];
 }
 
-int32_t SiriusImpl::processTask(void *dat)
+int32_t SiriusImpl::processTask(TaskBase *task)
 {
     assert(!ISNULL(dat));
     uint32_t rc = NO_ERROR;
-    TaskBase *task = static_cast<TaskBase *>(dat);
     TaskType type = NOTNULL(task) ? task->getType() : TYPE_MAX_INVALID;
     void *arg = NOTNULL(task) ? task->getTask() : NULL;
 
@@ -140,10 +145,9 @@ int32_t SiriusImpl::processTask(void *dat)
     return rc;
 }
 
-int32_t SiriusImpl::taskDone(void *dat, int32_t processRC)
+int32_t SiriusImpl::taskDone(TaskBase *task, int32_t processRC)
 {
     int32_t rc = NO_ERROR;
-    TaskBase *task = static_cast<TaskBase *>(dat);
     SyncType *sync = NOTNULL(task) ? task->getSync() : NULL;
 
     if (!SUCCEED(processRC)) {
@@ -180,9 +184,17 @@ int32_t SiriusImpl::pushToThread(TaskType type, void *value)
     }
 
     if (SUCCEED(rc)) {
-        rc = mThreads->get()->newTask((void *)task);
+        rc = mThreads->run(
+            [this](TaskBase *_task) -> int32_t {
+                int32_t _rc = processTask(_task);
+                taskDone(_task, _rc);
+                return _rc;
+            },
+            task,
+            sync
+        );
         if (!SUCCEED(rc)) {
-            LOGE(mModule, "Failed to push task %d %s to Sirius impl",
+            LOGE(mModule, "Failed to run task %d %s",
                 task->getid(), task->whoamI());
         }
     }

@@ -1,13 +1,7 @@
-
-#include "log_impl.h"
-
-namespace sirius {
-
-#include <stdio.h>
 #include <string.h>
-#include <sys/types.h>
-#include <sys/stat.h>
 #include <fcntl.h>
+
+#include "LogImpl.h"
 
 #ifdef DBG_ASSERT_RAISE_TRAP
 #include "signal.h"
@@ -18,6 +12,13 @@ namespace sirius {
 #undef LOG_TAG
 #define LOG_TAG PROJNAME VERSION
 #endif
+
+namespace sirius {
+
+#define MAX_PROCESS_NAME_LEN 16
+#define LOG_FILE_PATH        "/data/vendor/camera/sirius.log"
+#define LOG_FILE_PATH_LAST   "/data/vendor/camera/sirius.last.log"
+#define LOG_MAX_LEN_PER_LINE 10240 // Bytes
 
 int8_t gDebugController[][LOG_TYPE_MAX_INVALID + 1] = {
     // NONE,  DBG,  INF, WARN,  ERR, FATA, INVA
@@ -61,8 +62,13 @@ static const char *const gLogType[] = {
     [LOG_TYPE_MAX_INVALID] = "<INVA>",
 };
 
-static char process[PATH_MAX] = { '\0' };
-#include "errno.h"
+static char    gProcess[PATH_MAX]    = { '\0' };
+#ifdef SAVE_FILE_FS
+static int32_t gLogfd                = -1;
+static char    gLogLine[LOG_MAX_LEN_PER_LINE];
+static pthread_mutex_t gWriteLock = PTHREAD_MUTEX_INITIALIZER;
+#endif
+
 static int32_t getMaxInvalidId(char *text, int32_t len)
 {
     int32_t i = 0;
@@ -83,10 +89,11 @@ static int32_t getMaxInvalidId(char *text, int32_t len)
 
 static char *getProcessName()
 {
-    if (process[0] == '\0') {
+    if (gProcess[0] == '\0') {
         pid_t pid = getpid();
         char path[32];
         char text[PATH_MAX] = { '\0' };
+        int  length;
 
         sprintf(path, "/proc/%d/cmdline", pid);
         int32_t fd = open(path, O_RDONLY);
@@ -96,13 +103,13 @@ static char *getProcessName()
                 text[len] = text[getMaxInvalidId(text, len)] = '\0';
                 char *index = strrchr(text, '/');
                 if (index != NULL) {
-                    strcpy(process, index + 1);
+                    strcpy(gProcess, index + 1);
                 }
             }
             close(fd);
         }
 
-        if (process[0] == '\0') {
+        if (gProcess[0] == '\0') {
             text[0] = '\0';
             strcpy(path, "/proc/self/exe");
             ssize_t len = readlink(path, text, PATH_MAX);
@@ -110,24 +117,31 @@ static char *getProcessName()
                 text[len] = text[getMaxInvalidId(text, len)] = '\0';
                 char *index = strrchr(text, '/');
                 if (index != NULL) {
-                    strcpy(process, index + 1);
+                    strcpy(gProcess, index + 1);
                 }
             }
         }
 
-        if (process[0] == '\0') {
-            strcpy(process, "Unknown");
+        if (gProcess[0] == '\0') {
+            strcpy(gProcess, "Unknown");
+        }
+
+        length = strlen(gProcess);
+        if (length > MAX_PROCESS_NAME_LEN) {
+            memmove(gProcess,
+                gProcess + length + 1 - MAX_PROCESS_NAME_LEN,
+                MAX_PROCESS_NAME_LEN + 1);
         }
     }
 
-    return process;
+    return gProcess;
 }
 
 static bool checkValid(LogType type)
 {
     bool rc = false;
 
-    if (type > 0 && type < LOG_TYPE_MAX_INVALID) {
+    if (type >= 0 && type < LOG_TYPE_MAX_INVALID) {
         rc = true;
     }
 
@@ -161,8 +175,12 @@ static int32_t __log_vsnprintf(char* pdst, int32_t size,
     return written;
 }
 
-void print_log(const LogType logt, const char *fmt,
+static void print_log(const LogType logt, const char *fmt,
     char *process, const char *module, const char *type,
+    const char *func, const int line, const char *buf);
+
+static void save_log(const char *fmt, char *process,
+    const char *module, const char *type,
     const char *func, const int line, const char *buf);
 
 void __debug_log(const ModuleType module, const LogType type,
@@ -179,7 +197,9 @@ void __debug_log(const ModuleType module, const LogType type,
         getProcessName(), getModuleShortName(module),
         getLogType(type), func, line, buf);
 
-    // TODO: write to file if necessary
+    save_log("%s %s%s: %s:+%d: %s", getProcessName(),
+        getModuleShortName(module),
+        getLogType(type), func, line, buf);
 }
 
 void __assert_log(const ModuleType module, const unsigned char cond,
@@ -197,15 +217,103 @@ void __assert_log(const ModuleType module, const unsigned char cond,
             getProcessName(), getModuleShortName(module),
             "<ASSERT>", func, line, buf);
 
-        // TODO: write to file if necessary
+        save_log("[<! ASSERT !>]%s %s%s: %s:+%d: %s",
+            getProcessName(), getModuleShortName(module),
+            "<ASSERT>", func, line, buf);
 
 #ifdef DBG_ASSERT_RAISE_TRAP
+        save_log("[<! ASSERT !>] Process will suicide now.",
+            getProcessName(), getModuleShortName(MODULE_OTHERS),
+            getLogType(LOG_TYPE_FATAL), __FUNCTION__, __LINE__, buf);
         raise(SIGTRAP);
 #endif
     }
 }
 
-void print_log(const LogType logt, const char *fmt,
+#ifdef SAVE_FILE_FS
+static void save_log(const char *fmt, char *process,
+    const char *module, const char *type,
+    const char *func, const int line, const char *buf)
+{
+    if (gLogfd == -1) {
+        if (access(LOG_FILE_PATH_LAST, F_OK) ||
+            unlink(LOG_FILE_PATH_LAST)) {
+            print_log(LOG_TYPE_ERROR, fmt,
+                process, getModuleShortName(MODULE_OTHERS),
+                getLogType(LOG_TYPE_ERROR), __FUNCTION__, __LINE__,
+                "Failed to remove last log file " LOG_FILE_PATH_LAST);
+        }
+    }
+
+    if (gLogfd == -1) {
+        if (!access(LOG_FILE_PATH, F_OK)) {
+            if (rename(LOG_FILE_PATH, LOG_FILE_PATH_LAST)) {
+                print_log(LOG_TYPE_ERROR, fmt,
+                    process, getModuleShortName(MODULE_OTHERS),
+                    getLogType(LOG_TYPE_ERROR), __FUNCTION__, __LINE__,
+                    "Failed to rename log file " LOG_FILE_PATH
+                    " to " LOG_FILE_PATH_LAST);
+            }
+        }
+    }
+
+    if (gLogfd == -1) {
+        if (access(LOG_FILE_PATH, F_OK) ||
+            unlink(LOG_FILE_PATH)) {
+            print_log(LOG_TYPE_ERROR, fmt,
+                process, getModuleShortName(MODULE_OTHERS),
+                getLogType(LOG_TYPE_ERROR), __FUNCTION__, __LINE__,
+                "Failed to remove curr log file " LOG_FILE_PATH);
+        }
+    }
+
+    if (gLogfd == -1) {
+        gLogfd = open(LOG_FILE_PATH, O_RDWR | O_CREAT | O_TRUNC, 0777);
+        if (gLogfd < 0) {
+            print_log(LOG_TYPE_ERROR, fmt,
+                process, getModuleShortName(MODULE_OTHERS),
+                getLogType(LOG_TYPE_ERROR), __FUNCTION__, __LINE__,
+                "Failed to create file " LOG_FILE_PATH " for logs.");
+        }
+    }
+
+    if (gLogfd > 0) {
+        time_t t  = time(NULL);
+        struct tm* local = localtime(&t);
+        char timeBuf[32];
+        strftime(timeBuf, sizeof(timeBuf) - 1, "%Y-%m-%d %H:%M:%S", local);
+        struct timeval tv;
+        gettimeofday(&tv, NULL);
+
+        pthread_mutex_lock(&gWriteLock);
+        snprintf(gLogLine, sizeof(gLogLine) - 1, "%s.%03ld pid %d tid %ld ",
+            timeBuf, tv.tv_usec / 1000, getpid(), pthread_self());
+        int32_t cnt = strlen(gLogLine);
+        snprintf(gLogLine + cnt, sizeof(gLogLine) - cnt - 1,
+            fmt, process, module,
+            type, func, line, buf);
+        cnt = strlen(gLogLine);
+        gLogLine[cnt++] = '\n';
+        ssize_t len = write(gLogfd, gLogLine, cnt);
+        if (cnt > len) {
+            char tmp[255];
+            sprintf(tmp, "Log len %d bytes, written %d bytes.",
+                cnt, len);
+            print_log(LOG_TYPE_ERROR, fmt,
+                process, getModuleShortName(MODULE_OTHERS),
+                getLogType(LOG_TYPE_ERROR), __FUNCTION__, __LINE__, tmp);
+        }
+        pthread_mutex_unlock(&gWriteLock);
+    }
+}
+#else
+static void save_log(const char * /*fmt*/, char * /*process*/,
+    const char * /*module*/, const char * /*type*/,
+    const char * /*func*/, const int /*line*/, const char * /*buf*/)
+{
+}
+#endif
+static void print_log(const LogType logt, const char *fmt,
     char *process, const char *module, const char *type,
     const char *func, const int line, const char *buf)
 {

@@ -3,10 +3,10 @@
 
 #include "common.h"
 #include "SiriusIntf.h"
-#include "ThreadPoolEx.h"
-#include "SyncType.h"
 
 namespace sirius {
+
+class ThreadPoolEx;
 
 class ServerCallbackThread :
     public noncopyable {

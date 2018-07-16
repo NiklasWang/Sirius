@@ -3,6 +3,8 @@
 
 namespace sirius {
 
+bool SiriusClientCore::kHeaderInited = false;
+
 SiriusClientCore::SiriusClientCore() :
     mConstructed(false),
     mModule(MODULE_SIRIUS_CLIENT_CORE),
@@ -68,9 +70,18 @@ int32_t SiriusClientCore::prepare()
     int32_t size = 0;
     bool locked  = false;
 
-    if (mReady) {
-        LOGE(mModule, "Already prepared.");
-        rc = ALREADY_INITED;
+    if (SUCCEED(rc)) {
+        if (!kHeaderInited) {
+            LOGE(mModule, "Please update sirius client core first.");
+            rc = NOT_INITED;
+        }
+    }
+
+    if (SUCCEED(rc)) {
+        if (mReady) {
+            LOGE(mModule, "Already prepared.");
+            rc = ALREADY_INITED;
+        }
     }
 
     if (SUCCEED(rc)) {
@@ -80,7 +91,7 @@ int32_t SiriusClientCore::prepare()
             rc = ALREADY_INITED;
         }
     }
- 
+
     if (SUCCEED(rc)) {
         if (!mConnected) {
             rc = mSC.connectServer();
@@ -147,6 +158,13 @@ int32_t SiriusClientCore::prepare()
         rc = mCtl.init(mCtlBuf, size, false);
         if (!SUCCEED(rc)) {
             LOGE(mModule, "Failed to set memory to controller, %d", rc);
+        }
+    }
+
+    if (SUCCEED(rc)) {
+        rc = mCtl.setHeader(kHeader);
+        if (!SUCCEED(rc)) {
+            LOGE(mModule, "Failed to set header to controller, %d", rc);
         }
     }
 
@@ -219,6 +237,23 @@ int32_t SiriusClientCore::destruct()
 
 }
 
+int32_t SiriusClientCore::update(Header &header)
+{
+    int32_t rc = NO_ERROR;
+
+    kHeader = header;
+    kHeaderInited = true;
+
+    if (ready()) {
+        rc = mCtl.setHeader(kHeader);
+        if (!SUCCEED(rc)) {
+            LOGE(mModule, "Failed to set header to controller, %d", rc);
+        }
+    }
+
+    return rc;
+}
+
 bool SiriusClientCore::ready()
 {
     return mReady;
@@ -258,11 +293,6 @@ int32_t SiriusClientCore::getMemStatus(RequestType type, int32_t fd, bool *fresh
 int32_t SiriusClientCore::getMemSize(RequestType type, int32_t *size)
 {
     return mCtl.getMemSize(type, size);
-}
-
-int32_t SiriusClientCore::setHeader(Header &header)
-{
-    return mCtl.setHeader(header);
 }
 
 };

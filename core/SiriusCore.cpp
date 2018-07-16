@@ -117,7 +117,7 @@ int32_t SiriusCore::startServerLoop()
     }
 
     if (SUCCEED(rc)) {
-        if (strcmp(mSocketMsg, SOCKET_CLIENT_GREETING_STR)) {
+        if (!COMPARE_SAME_STRING(mSocketMsg, SOCKET_CLIENT_GREETING_STR)) {
             mSocketMsg[sizeof(mSocketMsg) - 1] = '\0';
             LOGE(mModule, "Unknown msg received, \"%s\"", mSocketMsg);
             rc = NOT_READY;
@@ -140,7 +140,7 @@ int32_t SiriusCore::startServerLoop()
     }
 
     if (SUCCEED(rc)) {
-        if (strcmp(mSocketMsg, SOCKET_CLIENT_REPLY_STR)) {
+        if (!COMPARE_SAME_STRING(mSocketMsg, SOCKET_CLIENT_REPLY_STR)) {
             mSocketMsg[sizeof(mSocketMsg) - 1] = '\0';
             LOGE(mModule, "Unknown msg received, \"%s\"", mSocketMsg);
             rc = NOT_READY;

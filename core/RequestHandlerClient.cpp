@@ -138,9 +138,11 @@ int32_t RequestHandlerClient::prepare()
     int32_t rc = NO_ERROR;
     bool locked  = false;
 
-    if (mReady) {
-        LOGE(mModule, "Already prepared.");
-        rc = ALREADY_INITED;
+    if (SUCCEED(rc)) {
+        if (mReady) {
+            LOGE(mModule, "Already prepared.");
+            rc = ALREADY_INITED;
+        }
     }
 
     if (SUCCEED(rc)) {
@@ -150,7 +152,7 @@ int32_t RequestHandlerClient::prepare()
             rc = ALREADY_INITED;
         }
     }
-    
+
     if (SUCCEED(rc)) {
         if (!kCore.ready()) {
             rc = kCore.prepare();
@@ -239,7 +241,7 @@ int32_t RequestHandlerClient::acceptSingleMemory()
             LOGE(mModule, "Failed to receive msg, %d", rc);
         }
     }
-    
+
     if (SUCCEED(rc)) {
         if (COMPARE_SAME_LEN_STRING(msg, SOCKET_SERVER_SHARE_DONE,
             strlen(SOCKET_SERVER_SHARE_DONE))) {

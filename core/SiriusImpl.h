@@ -4,15 +4,14 @@
 #include "common.h"
 #include "SiriusIntf.h"
 #include "SyncType.h"
-#include "ThreadPool.h"
 
 namespace sirius {
 
 class SiriusCore;
+class ThreadPoolEx;
 
 class SiriusImpl :
     public SiriusIntf,
-    public ThreadIntf,
     public noncopyable  {
 public:
     int32_t request(RequestType type) override;
@@ -44,8 +43,8 @@ public:
     int32_t destruct();
 
 private:
-    int32_t processTask(void *dat) override;
-    int32_t taskDone(void *dat, int32_t processRC) override;
+    int32_t processTask(TaskBase *task) override;
+    int32_t taskDone(TaskBase *task, int32_t processRC) override;
 
 private:
     enum TaskType {
@@ -95,21 +94,13 @@ private:
     template <typename T, sync_type sync = SYNC_TYPE>
     int32_t pushToThread(TaskType type, void *value);
 
-    struct ThreadPoolEx :
-        public ThreadPool,
-        public RefBase {
-        explicit ThreadPoolEx(ThreadIntf *p, uint32_t c = 0) :
-            ThreadPool(p, c) {}
-        virtual ~ThreadPoolEx() = default;
-    };
-
 private:
-    bool             mConstructed;
-    ModuleType       mModule;
-    RWLock           mIntfLock;
-    uint32_t         mTaskCnt;
-    sp<ThreadPoolEx> mThreads;
-    SiriusCore      *mCore;
+    bool          mConstructed;
+    ModuleType    mModule;
+    RWLock        mIntfLock;
+    uint32_t      mTaskCnt;
+    ThreadPoolEx *mThreads;
+    SiriusCore   *mCore;
     static const PushToThreadFunc gAddThreadTaskFunc[];
 };
 

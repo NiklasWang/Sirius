@@ -5,7 +5,6 @@
 #include "configuration.h"
 #include "SyncType.h"
 #include "ThreadT.h"
-#include "ThreadPool.h"
 
 namespace sirius {
 

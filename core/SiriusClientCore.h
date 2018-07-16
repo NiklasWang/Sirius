@@ -14,6 +14,7 @@ class SiriusClientCore :
 public:
     int32_t prepare();
     bool ready();
+    int32_t update(Header &header);
 
     bool requested(RequestType type);
     int32_t importBuf(void **buf, int32_t fd, int32_t len);
@@ -22,7 +23,6 @@ public:
     int32_t setMemStatus(RequestType type, int32_t fd, bool fresh = USED_MEMORY);
     int32_t getMemStatus(RequestType type, int32_t fd, bool *fresh);
     int32_t getMemSize(RequestType type, int32_t *size);
-    int32_t setHeader(Header &header);
 
 public:
     int32_t construct();
@@ -40,6 +40,10 @@ private:
     ServerClientControl      mCtl;
     pthread_mutex_t          mLocker;
     SocketClientStateMachine mSC;
+
+private:
+    static Header  kHeader;
+    static bool    kHeaderInited;
 };
 
 };

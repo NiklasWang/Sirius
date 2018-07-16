@@ -2,7 +2,6 @@
 #define _SERVER_CLIENT_CONTROL_H_
 
 #include "common.h"
-#include "Semaphore.h"
 #include "configuration.h"
 #include "SiriusIntf.h"
 
