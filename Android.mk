@@ -10,31 +10,31 @@ LOCAL_SRC_FILES :=                      \
     core/Sirius.cpp                     \
     core/SiriusImpl.cpp                 \
     core/SiriusCore.cpp                 \
-	core/SiriusClientCore.cpp           \
-	core/RequestHandler.cpp             \
-	core/RequestHandlerClient.cpp       \
-	core/ServerCallbackThread.cpp       \
-	core/ServerClientControl.cpp        \
+    core/SiriusClientCore.cpp           \
+    core/RequestHandler.cpp             \
+    core/RequestHandlerClient.cpp       \
+    core/ServerCallbackThread.cpp       \
+    core/ServerClientControl.cpp        \
     socket/socket_server.cpp            \
     socket/socket_client.cpp            \
     socket/server_client_common.cpp     \
     socket/SocketClientStateMachine.cpp \
     socket/SocketServerStateMachine.cpp \
-	buffer/BufferMgr.cpp                \
-	buffer/IonBufferMgr.cpp             \
-	usecase/EventClient.cpp             \
-	usecase/EventServer.cpp             \
-	usecase/PreviewClient.cpp           \
-	usecase/PreviewServer.cpp           \
-	usecase/YuvPictureClient.cpp        \
-	usecase/YuvPictureServer.cpp        \
-	threads/Thread.cpp                  \
-	threads/ThreadPool.cpp              \
-	threads/ThreadPoolEx.cpp            \
-	threads/ThreadRunner.cpp            \
-	memory/MemMgmt.cpp                  \
-	memory/PoolImpl.cpp                 \
-	log/LogImpl.cpp                     \
+    buffer/BufferMgr.cpp                \
+    buffer/IonBufferMgr.cpp             \
+    usecase/EventClient.cpp             \
+    usecase/EventServer.cpp             \
+    usecase/PreviewClient.cpp           \
+    usecase/PreviewServer.cpp           \
+    usecase/YuvPictureClient.cpp        \
+    usecase/YuvPictureServer.cpp        \
+    threads/Thread.cpp                  \
+    threads/ThreadPool.cpp              \
+    threads/ThreadPoolEx.cpp            \
+    threads/ThreadRunner.cpp            \
+    memory/MemMgmt.cpp                  \
+    memory/PoolImpl.cpp                 \
+    log/LogImpl.cpp                     \
     utils/modules.cpp                   \
     utils/Semaphore.cpp                 \
     utils/CQueue.cpp                    \

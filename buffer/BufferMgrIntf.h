@@ -5,7 +5,7 @@
 
 class BufferMgrIntf
 {
-public:    
+public:
     virtual int32_t init() = 0;
     virtual int32_t deinit() = 0;
 
