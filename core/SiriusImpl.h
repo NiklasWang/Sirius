@@ -43,10 +43,6 @@ public:
     int32_t destruct();
 
 private:
-    int32_t processTask(TaskBase *task) override;
-    int32_t taskDone(TaskBase *task, int32_t processRC) override;
-
-private:
     enum TaskType {
         TYPE_REQUEST,
         TYPE_ABORT,
@@ -91,13 +87,16 @@ private:
     };
 
     typedef int32_t (SiriusImpl::*PushToThreadFunc)(TaskType type, void *arg);
+
     template <typename T, sync_type sync = SYNC_TYPE>
     int32_t pushToThread(TaskType type, void *value);
+
+    int32_t processTask(TaskBase *task);
+    int32_t taskDone(TaskBase *task, int32_t processRC);
 
 private:
     bool          mConstructed;
     ModuleType    mModule;
-    RWLock        mIntfLock;
     uint32_t      mTaskCnt;
     ThreadPoolEx *mThreads;
     SiriusCore   *mCore;

@@ -53,8 +53,8 @@ private:
         SyncType sync;
     };
 
-    virtual int32_t processTask(void *dat) override;
-    virtual int32_t taskDone(void *dat, int32_t rc) override;
+    virtual int32_t processTask(cmd_info *info);
+    virtual int32_t taskDone(cmd_info *info, int32_t rc);
 
     int32_t stateMachine(cmd_type cmd, void *arg);
     int32_t procCmdUninitedState(cmd_type cmd, void *arg);

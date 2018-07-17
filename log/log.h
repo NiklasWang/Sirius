@@ -1,7 +1,7 @@
 #ifndef _LOG_H_
 #define _LOG_H_
 
-#include "log_impl.h"
+#include "LogImpl.h"
 
 namespace sirius {
 

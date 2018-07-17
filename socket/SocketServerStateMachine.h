@@ -67,6 +67,7 @@ private:
 
     int32_t processTask(cmd_info *dat);
     int32_t taskDone(cmd_info *dat, int32_t rc);
+
     int32_t stateMachine(cmd_type cmd, void *arg);
     int32_t procCmdUninitedState(cmd_type cmd, void *arg);
     int32_t procCmdInitedState(cmd_type cmd, void *arg);
@@ -92,15 +93,6 @@ public:
 
 private:
     typedef int32_t (SocketServerStateMachine::*SMFunc)(cmd_type cmd, void *arg);
-
-    struct ThreadPoolEx :
-        public ThreadPool,
-        public RefBase {
-        explicit ThreadPoolEx(ThreadIntf *p, uint32_t c = 0) :
-            ThreadPool(p, c) {}
-        virtual ~ThreadPoolEx() = default;
-    };
-
     int32_t executeOnThread(cmd_info *task);
 
 private:

@@ -1,5 +1,3 @@
-#include "PalImpl.h"
-#include "PandoraImpl.h"
 #include "Thread.h"
 
 namespace sirius {

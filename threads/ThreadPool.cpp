@@ -12,7 +12,7 @@ int32_t ThreadPool::runWait(std::function<int32_t ()> func)
     return run(func, SYNC_TYPE);
 }
 
-int32_t ThreadPool::run(std::function<int32_t ()> func, SyncTypeE sync)
+int32_t ThreadPool::run(std::function<int32_t ()> func, sync_type sync)
 {
     int32_t rc = NO_ERROR;
     WorkerThread *worker = get(

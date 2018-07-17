@@ -38,17 +38,19 @@ LOCAL_SRC_FILES :=                      \
     utils/modules.cpp                   \
     utils/Semaphore.cpp                 \
     utils/CQueue.cpp                    \
-    utils/SyncType.cpp
+    utils/SyncType.cpp                  \
+    utils/sp/RefBase.cpp
 
-LOCAL_C_INCLUDES :=       \
-    $(LOCAL_PATH)/utils   \
-    $(LOCAL_PATH)/log     \
-    $(LOCAL_PATH)/core    \
-    $(LOCAL_PATH)/threads \
-    $(LOCAL_PATH)/memory  \
-    $(LOCAL_PATH)/socket  \
-    $(LOCAL_PATH)/buffer  \
-    $(LOCAL_PATH)/usecase
+LOCAL_C_INCLUDES :=         \
+    $(SIRIUS_PATH)/utils    \
+    $(SIRIUS_PATH)/utils/sp \
+    $(SIRIUS_PATH)/log      \
+    $(SIRIUS_PATH)/core     \
+    $(SIRIUS_PATH)/threads  \
+    $(SIRIUS_PATH)/memory   \
+    $(SIRIUS_PATH)/socket   \
+    $(SIRIUS_PATH)/buffer   \
+    $(SIRIUS_PATH)/usecase
 
 LOCAL_CFLAGS := -std=c++11 -Wall -Wextra -Werror
 LOCAL_CFLAGS += -DENABLE_LOGGER -DBUILD_ANDROID_AP -DMEMORY_DEBUG_MODE
@@ -58,10 +60,10 @@ LOCAL_SHARED_LIBRARIES += liblog libutils libcutils
 LOCAL_STATIC_LIBRARIES +=
 
 ifeq ($(ENABLE_ION_MEM),yes)
-  LOCAL_CFLAGS           += ENABLE_ION_BUFFER
-  LOCAL_C_INCLUDES       +=
-      $(LOCAL_PATH)/android     \
-      $(LOCAL_PATH)/android/ion \
+  LOCAL_CFLAGS           += -DENABLE_ION_BUFFER
+  LOCAL_C_INCLUDES       +=      \
+      $(SIRIUS_PATH)/android     \
+      $(SIRIUS_PATH)/android/ion \
       $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr/include
   LOCAL_STATIC_LIBRARIES += libsirius_ion
   LOCAL_ADDITIONAL_DEPENDENCIES := $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr

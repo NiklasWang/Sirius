@@ -9,7 +9,7 @@ PreviewClient::PreviewClient() :
         PREVIEW_NV21,
         "Preview(NV21) Request Client",
         REQUEST_HANDLER_MAX_MEMORY_NUM),
-    mModule(MODULE_PREVIEW_REQUEST),
+    mModule(MODULE_PREVIEW_REQUEST)
 {
 }
 
@@ -37,7 +37,7 @@ int32_t PreviewClient::sizeOfData(void *header)
 {
     PreviewNV21Header *_header =
         static_cast<PreviewNV21Header *>(header);
-    return _header.w * _header.h * 3 / 2;
+    return _header->w * _header->h * 3 / 2;
 }
 
 int32_t PreviewClient::onPreviewReady(
@@ -56,7 +56,7 @@ int32_t PreviewClient::onPreviewReady(
     };
 
     if (SUCCEED(rc)) {
-        rc = onDataReady(&header, _data);
+        rc = onDataReady(&header, (uint8_t *)_data);
         if (!SUCCEED(rc)) {
             LOGD(mModule, "Failed to copy frame data, %d", rc);
         }
@@ -86,18 +86,18 @@ int32_t PreviewClient::CopyFrameWithoutStride(
     uint32_t offset_src = 0;
     uint32_t offset_dst = 0;
 
-    for (int32_t i = 0; i < header.h; i++) {
-        memcpy(dst + offset_dst, src + offset_src, header.w);
-        offset_dst += header.w;
-        offset_src += ALIGN_WITH_NUM(header.w, header.stride);
+    for (int32_t i = 0; i < header->h; i++) {
+        memcpy(dst + offset_dst, src + offset_src, header->w);
+        offset_dst += header->w;
+        offset_src += ALIGN_WITH_NUM(header->w, header->stride);
     }
 
-    offset_src = ALIGN_WITH_NUM(header.w, header.stride) *
-        ALIGN_WITH_NUM(header.w, header.scanline);
-    for (int32_t i = 0; i < (header.h / 2); i++) {
-        memcpy(dst + offset_dst, src + offset_src, header.w);
-        offset_dst += header.w;
-        offset_src += ALIGN_WITH_NUM(header.w, header.stride);
+    offset_src = ALIGN_WITH_NUM(header->w, header->stride) *
+        ALIGN_WITH_NUM(header->w, header->scanline);
+    for (int32_t i = 0; i < (header->h / 2); i++) {
+        memcpy(dst + offset_dst, src + offset_src, header->w);
+        offset_dst += header->w;
+        offset_src += ALIGN_WITH_NUM(header->w, header->stride);
     }
 
     return NO_ERROR;

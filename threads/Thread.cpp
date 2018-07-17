@@ -29,7 +29,7 @@ int32_t Thread::runWait(std::function<int32_t ()> func,
         cb);
 }
 
-int32_t Thread::run(std::function<int32_t ()> func, SyncTypeE sync,
+int32_t Thread::run(std::function<int32_t ()> func, sync_type sync,
     std::function<int32_t (Thread *)> cb)
 {
     int32_t rc = NO_ERROR;

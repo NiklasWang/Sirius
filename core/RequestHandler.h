@@ -6,6 +6,7 @@
 #include "HandlerOpsIntf.h"
 #include "RequestHandlerIntf.h"
 #include "ThreadPoolEx.h"
+#include "SocketServerStateMachine.h"
 
 namespace sirius {
 
@@ -34,6 +35,8 @@ protected:
     virtual int32_t getDataSize() = 0;
 
 private:
+    virtual int32_t startServerLoop();
+    virtual int32_t exitServerLoop();
     int32_t getExpectedBufferSize();
     int32_t allocMemAndShare();
     int32_t allocMem();

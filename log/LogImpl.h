@@ -32,7 +32,7 @@ extern int8_t gDebugController[][LOG_TYPE_MAX_INVALID + 1];
 #undef PLOGx
 #define PLOGx(module, level, fmt, args...)      \
     do {                                        \
-        if (gDebugController[module][level]) {  \                         \
+        if (gDebugController[module][level]) {  \
             __debug_log(module, level, __FUNCTION__, __LINE__, fmt, ##args); \
         }                                       \
     } while(0)

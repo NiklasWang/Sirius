@@ -1,7 +1,10 @@
 #include <string.h>
 #include <fcntl.h>
 
+#include "common.h"
 #include "LogImpl.h"
+
+//#define SAVE_FILE_FS
 
 #ifdef DBG_ASSERT_RAISE_TRAP
 #include "signal.h"
@@ -313,6 +316,7 @@ static void save_log(const char * /*fmt*/, char * /*process*/,
 {
 }
 #endif
+
 static void print_log(const LogType logt, const char *fmt,
     char *process, const char *module, const char *type,
     const char *func, const int line, const char *buf)
@@ -341,7 +345,7 @@ static void print_log(const LogType logt, const char *fmt,
 #elif defined(BUILD_LINUX_X86_64)
     printf(fmt, process, module, type, func, line, buf);
 #else
-#error Not supported system arch.
+    #error Not supported system arch.
 #endif
 }
 

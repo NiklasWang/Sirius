@@ -5,7 +5,7 @@
 #include <string>
 #include <functional>
 
-#include "Common.h"
+#include "common.h"
 #include "Semaphore.h"
 #include "QueueT.h"
 #include "SyncType.h"
@@ -32,11 +32,11 @@ public:
     int32_t runWait(std::function<int32_t (T *)> func, T *arg,
         std::function<int32_t (Thread *)> cb = [](Thread *) -> int32_t { return 0; });
 
-    int32_t run(std::function<int32_t ()> func, SyncTypeE sync,
+    int32_t run(std::function<int32_t ()> func, sync_type sync,
         std::function<int32_t (Thread *)> cb = [](Thread *) -> int32_t { return 0; });
 
     template <typename T>
-    int32_t run(std::function<int32_t (T *)> func, T *arg, SyncTypeE sync,
+    int32_t run(std::function<int32_t (T *)> func, T *arg, sync_type sync,
         std::function<int32_t (Thread *)> cb = [](Thread *) -> int32_t { return 0; });
 
     bool idle();
@@ -47,7 +47,7 @@ public:
 private:
     template <typename T>
     int32_t run(std::function<int32_t (T *)> func, T *arg,
-        SyncTypeE sync, std::function<int32_t (Thread *)> cb, bool internal);
+        sync_type sync, std::function<int32_t (Thread *)> cb, bool internal);
     struct TaskBase;
     int32_t callFunc(TaskBase *task, bool release); // TODO: This is temp solution, fix later
 

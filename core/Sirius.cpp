@@ -57,10 +57,10 @@ int32_t Sirius::abort(RequestType type)
     return SUCCEED(rc) ? mImpl->abort(type) : rc;
 }
 
-int32_t Sirius::enqueueBuf(RequestType type, int32_t id)
+int32_t Sirius::enqueue(RequestType type, int32_t id)
 {
     int32_t rc = CONSTRUCT_IMPL_ONCE();
-    return SUCCEED(rc) ? mImpl->enqueueBuf(type, id) : rc;
+    return SUCCEED(rc) ? mImpl->enqueue(type, id) : rc;
 }
 
 int32_t Sirius::setCallback(RequestCbFunc requestCb, EventCbFunc eventCb)

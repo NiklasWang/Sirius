@@ -104,12 +104,9 @@ int32_t BufferMgr::release(void *buf)
 
 void BufferMgr::clear_all()
 {
-    int32_t rc = CONSTRUCT_IMPL_ONCE();
-    return SUCCEED(rc) ? mMgr->clear_all() : rc;
+    CONSTRUCT_IMPL_ONCE();
+    mMgr->clear_all();
 }
 
 };
-
-#endif
-
 

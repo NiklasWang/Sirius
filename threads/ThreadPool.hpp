@@ -15,7 +15,7 @@ int32_t ThreadPool::runWait(std::function<int32_t (T *)> func, T *arg)
 }
 
 template <typename T>
-int32_t ThreadPool::run(std::function<int32_t (T *)> func, T *arg, SyncTypeE sync)
+int32_t ThreadPool::run(std::function<int32_t (T *)> func, T *arg, sync_type sync)
 {
     int32_t rc = NO_ERROR;
     WorkerThread *worker = get(

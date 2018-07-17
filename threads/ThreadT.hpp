@@ -42,7 +42,7 @@ int32_t ThreadT<T>::runWait(std::function<int32_t (T *)> func, T *arg)
 }
 
 template <typename T>
-int32_t ThreadT<T>::run(std::function<int32_t ()> func, SyncTypeE sync)
+int32_t ThreadT<T>::run(std::function<int32_t ()> func, sync_type sync)
 {
     int32_t rc = NO_ERROR;
 
@@ -57,7 +57,7 @@ int32_t ThreadT<T>::run(std::function<int32_t ()> func, SyncTypeE sync)
 }
 
 template <typename T>
-int32_t ThreadT<T>::run(std::function<int32_t (T *)> func, T *arg, SyncTypeE sync)
+int32_t ThreadT<T>::run(std::function<int32_t (T *)> func, T *arg, sync_type sync)
 {
     int32_t rc = NO_ERROR;
 
@@ -82,7 +82,7 @@ int32_t ThreadT<T>::run(std::function<int32_t (T *)> func, T *arg, SyncTypeE syn
 
 template <typename T>
 int32_t ThreadT<T>::run(std::function<int32_t (T *)> func,
-    T *arg, SyncTypeE sync, bool /*internal*/)
+    T *arg, sync_type sync, bool /*internal*/)
 {
     int32_t rc = NO_ERROR;
     bool bufferedTask = true;

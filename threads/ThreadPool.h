@@ -21,10 +21,10 @@ public:
     template <typename T>
     int32_t runWait(std::function<int32_t (T *)> func, T *arg);
 
-    int32_t run(std::function<int32_t ()> func, SyncTypeE sync);
+    int32_t run(std::function<int32_t ()> func, sync_type sync);
 
     template <typename T>
-    int32_t run(std::function<int32_t (T *)> func, T *arg, SyncTypeE sync);
+    int32_t run(std::function<int32_t (T *)> func, T *arg, sync_type sync);
 
     bool available();
     int32_t workload();

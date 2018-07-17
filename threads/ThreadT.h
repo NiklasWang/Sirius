@@ -5,7 +5,7 @@
 #include <string>
 #include <functional>
 
-#include "Common.h"
+#include "common.h"
 #include "Semaphore.h"
 #include "QueueT.h"
 #include "SyncType.h"
@@ -20,8 +20,8 @@ public:
     int32_t run(std::function<int32_t (T *)> func, T *arg);
     int32_t runWait(std::function<int32_t ()> func);
     int32_t runWait(std::function<int32_t (T *)> func, T *arg);
-    int32_t run(std::function<int32_t ()> func, SyncTypeE sync);
-    int32_t run(std::function<int32_t (T *)> func, T *arg, SyncTypeE sync);
+    int32_t run(std::function<int32_t ()> func, sync_type sync);
+    int32_t run(std::function<int32_t (T *)> func, T *arg, sync_type sync);
 
     const char *whoamI();
 
@@ -36,7 +36,7 @@ public:
 
 private:
     int32_t run(std::function<int32_t (T *)> func,
-        T *arg, SyncTypeE sync, bool internal);
+        T *arg, sync_type sync, bool internal);
 
 private:
     enum thread_status {

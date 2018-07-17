@@ -119,10 +119,9 @@ int32_t SocketClientStateMachine::destruct()
     return RETURNIGNORE(rc, NOT_INITED);
 }
 
-int32_t SocketClientStateMachine::processTask(void *dat)
+int32_t SocketClientStateMachine::processTask(cmd_info *info)
 {
     int32_t rc = NO_ERROR;
-    cmd_info *info = static_cast<cmd_info *>(dat);
 
     switch (info->cmd) {
         case CMD_CONNECT_SERVER: {
@@ -172,10 +171,9 @@ int32_t SocketClientStateMachine::processTask(void *dat)
     return rc;
 }
 
-int32_t SocketClientStateMachine::taskDone(void *dat, int32_t result)
+int32_t SocketClientStateMachine::taskDone(cmd_info *info, int32_t result)
 {
     int32_t rc = NO_ERROR;
-    cmd_info *info = static_cast<cmd_info *>(dat);
 
     rc = info->rc = result;
 

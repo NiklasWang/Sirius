@@ -1,12 +1,14 @@
 #include <stdlib.h>
 #include <string.h>
+
 #include "clist.h"
-#include "CQueue.h"
+#include "QueueT.h"
 #include "log.h"
 
 namespace sirius {
 
-CQueue::CQueue()
+template <typename T>
+QueueT<T>::QueueT()
 {
     pthread_mutex_init(&m_lock, NULL);
     clist_init(&m_head.list);
@@ -16,7 +18,8 @@ CQueue::CQueue()
     m_active = true;
 }
 
-CQueue::CQueue(release_data_fn_c data_rel_fn, void *user_data)
+template <typename T>
+QueueT<T>::QueueT(release_data_fn<T> data_rel_fn, void *user_data)
 {
     pthread_mutex_init(&m_lock, NULL);
     clist_init(&m_head.list);
@@ -26,30 +29,35 @@ CQueue::CQueue(release_data_fn_c data_rel_fn, void *user_data)
     m_active = true;
 }
 
-CQueue::~CQueue()
+template <typename T>
+QueueT<T>::~QueueT()
 {
     flush();
     pthread_mutex_destroy(&m_lock);
 }
 
-int CQueue::getCurrentSize()
+template <typename T>
+int QueueT<T>::getCurrentSize()
 {
     return m_size;
 }
 
-int CQueue::size()
+template <typename T>
+int QueueT<T>::size()
 {
     return getCurrentSize();
 }
 
-void CQueue::init()
+template <typename T>
+void QueueT<T>::init()
 {
     pthread_mutex_lock(&m_lock);
     m_active = true;
     pthread_mutex_unlock(&m_lock);
 }
 
-bool CQueue::isEmpty()
+template <typename T>
+bool QueueT<T>::isEmpty()
 {
     bool flag = true;
     pthread_mutex_lock(&m_lock);
@@ -60,7 +68,8 @@ bool CQueue::isEmpty()
     return flag;
 }
 
-bool CQueue::enqueue(void *data)
+template <typename T>
+bool QueueT<T>::enqueue(T *data)
 {
     bool rc;
     q_node *node =
@@ -86,7 +95,8 @@ bool CQueue::enqueue(void *data)
     return rc;
 }
 
-bool CQueue::enqueueWithPriority(void *data)
+template <typename T>
+bool QueueT<T>::enqueueWithPriority(T *data)
 {
     bool rc;
     q_node *node =
@@ -118,7 +128,8 @@ bool CQueue::enqueueWithPriority(void *data)
     return rc;
 }
 
-void* CQueue::peek()
+template <typename T>
+T* QueueT<T>::peek()
 {
     q_node* node = NULL;
     void* data = NULL;
@@ -142,10 +153,11 @@ void* CQueue::peek()
     return data;
 }
 
-void* CQueue::dequeue(bool bFromHead)
+template <typename T>
+T* QueueT<T>::dequeue(bool bFromHead)
 {
     q_node* node = NULL;
-    void* data = NULL;
+    T* data = NULL;
     struct clist *head = NULL;
     struct clist *pos = NULL;
 
@@ -173,12 +185,13 @@ void* CQueue::dequeue(bool bFromHead)
     return data;
 }
 
-void* CQueue::dequeue(match_fn_data_c match, void *match_data)
+template <typename T>
+T* QueueT<T>::dequeue(match_fn_data<T> match, T *match_data)
 {
     q_node* node = NULL;
     struct clist *head = NULL;
     struct clist *pos = NULL;
-    void* data = NULL;
+    T* data = NULL;
 
     if ( NULL == match || NULL == match_data ) {
         return NULL;
@@ -208,7 +221,8 @@ void* CQueue::dequeue(match_fn_data_c match, void *match_data)
     return NULL;
 }
 
-void CQueue::flush()
+template <typename T>
+void QueueT<T>::flush()
 {
     q_node* node = NULL;
     struct clist *head = NULL;
@@ -240,7 +254,8 @@ void CQueue::flush()
     pthread_mutex_unlock(&m_lock);
 }
 
-void CQueue::flushNodes(match_fn_c match)
+template <typename T>
+void QueueT<T>::flushNodes(match_fn<T> match)
 {
     q_node* node = NULL;
     struct clist *head = NULL;
@@ -275,7 +290,8 @@ void CQueue::flushNodes(match_fn_c match)
     pthread_mutex_unlock(&m_lock);
 }
 
-void CQueue::flushNodes(match_fn_data_c match, void *match_data)
+template <typename T>
+void QueueT<T>::flushNodes(match_fn_data<T> match, T *match_data)
 {
     q_node* node = NULL;
     struct clist *head = NULL;

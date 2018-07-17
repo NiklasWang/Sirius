@@ -5,7 +5,11 @@
 
 #include <linux/msm_ion.h>
 
+#include <list>
+
 #include "common.h"
+#include "RWLock.h"
+#include "BufferMgrIntf.h"
 
 namespace sirius {
 
@@ -46,9 +50,9 @@ private:
     Buffer *findBuf(void *buf);
 
 private:
-    List<Buffer> mBuffers;
-    RWLock       mBufLock;
-    ModuleType   mModule;
+    std::list<Buffer> mBuffers;
+    RWLock     mBufLock;
+    ModuleType mModule;
 
 private:
     static int32_t mIonFd;

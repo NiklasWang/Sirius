@@ -1,6 +1,10 @@
 #ifndef _TIME_EX_H_
 #define _TIME_EX_H_
 
+#include <sys/time.h>
+
+namespace sirius {
+
 inline int64_t currentUs()
 {
     int64_t t = 0;
@@ -11,5 +15,7 @@ inline int64_t currentUs()
 
     return t;
 }
+
+};
 
 #endif

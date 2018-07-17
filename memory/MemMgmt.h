@@ -4,13 +4,13 @@
 #include <string>
 #include <list>
 
-#include "Common.h"
+#include "common.h"
 #include "RWLock.h"
 
 namespace sirius {
 
-#define MAX_TOTAL_ALLOC_SIZE (715 * 1024 * 1024)
-#define MAX_ALLOCABLE_SIZE   (447 * 1024 * 1024 + 1)
+#define MAX_TOTAL_ALLOC_SIZE (64 * 1024 * 1024)
+#define MAX_ALLOCABLE_SIZE   (32 * 1024 * 1024 + 1)
 
 struct MemoryPool;
 

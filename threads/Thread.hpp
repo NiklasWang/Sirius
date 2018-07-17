@@ -21,7 +21,7 @@ int32_t Thread::runWait(std::function<int32_t (T *)> func, T *arg,
 
 template <typename T>
 int32_t Thread::run(std::function<int32_t (T *)> func, T *arg,
-    SyncTypeE sync, std::function<int32_t (Thread *)> cb)
+    sync_type sync, std::function<int32_t (Thread *)> cb)
 {
     int32_t rc = NO_ERROR;
 
@@ -37,7 +37,7 @@ int32_t Thread::run(std::function<int32_t (T *)> func, T *arg,
 
 template <typename T>
 int32_t Thread::run(std::function<int32_t (T *)> func, T *arg,
-    SyncTypeE sync, std::function<int32_t (Thread *)> cb, bool /*internal*/)
+    sync_type sync, std::function<int32_t (Thread *)> cb, bool /*internal*/)
 {
     int32_t rc = NO_ERROR;
     bool buffered = true;

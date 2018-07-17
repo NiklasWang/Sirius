@@ -23,7 +23,6 @@ SiriusImpl::~SiriusImpl()
 int32_t SiriusImpl::construct()
 {
     int32_t rc = NO_ERROR;
-    RWLock::AutoWLock l(mIntfLock);
 
     if (mConstructed) {
         rc = ALREADY_INITED;
@@ -63,7 +62,6 @@ int32_t SiriusImpl::construct()
 int32_t SiriusImpl::destruct()
 {
     int32_t rc = NO_ERROR;
-    RWLock::AutoWLock l(mIntfLock);
 
     if (!mConstructed) {
         rc = NOT_INITED;
@@ -234,21 +232,18 @@ const SiriusImpl::PushToThreadFunc
 int32_t SiriusImpl::request(RequestType type)
 {
     CONSTRUCT_IMPL();
-    RWLock::AutoRLock l(mIntfLock);
     return (this->*(gAddThreadTaskFunc[TYPE_REQUEST]))(TYPE_REQUEST, &type);
 }
 
 int32_t SiriusImpl::abort(RequestType type)
 {
     CONSTRUCT_IMPL();
-    RWLock::AutoRLock l(mIntfLock);
     return (this->*(gAddThreadTaskFunc[TYPE_ABORT]))(TYPE_ABORT, &type);
 }
 
 int32_t SiriusImpl::enqueue(RequestType type, int32_t id)
 {
     CONSTRUCT_IMPL();
-    RWLock::AutoRLock l(mIntfLock);
     BufferInfo buf = {
         .type = type,
         .id   = id,
@@ -259,7 +254,6 @@ int32_t SiriusImpl::enqueue(RequestType type, int32_t id)
 int32_t SiriusImpl::setCallback(RequestCbFunc requestCb, EventCbFunc eventCb)
 {
     CONSTRUCT_IMPL();
-    RWLock::AutoRLock l(mIntfLock);
     CbInfo func = {
         .requestCb = requestCb,
         .eventCb   = eventCb,

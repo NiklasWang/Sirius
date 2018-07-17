@@ -9,7 +9,7 @@
  */
 
 #include "PoolImpl.h"
-#include "Logs.h"
+#include "log.h"
 
 #define PrintWarning(fmt, args...) LOGI(MODULE_MEMORY_POOL, fmt, ##args)
 #define PrintError(fmt, args...)   LOGE(MODULE_MEMORY_POOL, fmt, ##args)

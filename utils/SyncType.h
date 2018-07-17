@@ -8,6 +8,7 @@ namespace sirius {
 enum sync_type {
     SYNC_TYPE,
     ASYNC_TYPE,
+    SYNC_TYPE_MAX_INVALID,
 };
 
 class SyncType {
