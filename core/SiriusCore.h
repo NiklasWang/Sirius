@@ -65,9 +65,6 @@ private:
     ThreadPoolEx            *mThreads;
     RequestHandlerIntf      *mRequests[REQUEST_TYPE_MAX_INVALID];
     bool                     mCachedRequest[REQUEST_TYPE_MAX_INVALID];
-
-private:
-    static const RequestType gRequestTypeMap[REQUEST_TYPE_MAX_INVALID];
 };
 
 };

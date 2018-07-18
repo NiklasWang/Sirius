@@ -2,7 +2,7 @@
 #include <string.h>
 #include "clist.h"
 #include "CQueue.h"
-#include "log.h"
+#include "logs.h"
 
 namespace sirius {
 

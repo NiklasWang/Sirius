@@ -235,7 +235,7 @@ int32_t SiriusCore::convertToRequestType(
         LOGE(mModule, "Invalid msg, %s", msg);
         rc = PARAM_INVALID;
     } else {
-        *type = convertToRequestType(value);
+        *type = ::sirius::convertToRequestType(value);
     }
 
     return rc;
@@ -248,7 +248,7 @@ int32_t SiriusCore::enableCachedRequests()
     for (int32_t i = 0; i < REQUEST_TYPE_MAX_INVALID; i++) {
         if (mCachedRequest[i]) {
             LOGD(mModule, "Enable cached request %d", i);
-            rc = request(convertToRequestType(i));
+            rc = request(::sirius::convertToRequestType(i));
             if (!SUCCEED(rc)) {
                 LOGE(mModule, "Failed to create cached request %d", rc);
             } else {
@@ -283,7 +283,8 @@ int32_t SiriusCore::destruct()
 
     if (SUCCEED(rc)) {
         for (int32_t i = 0; i < REQUEST_TYPE_MAX_INVALID; i++) {
-            rc = mCtl.setRequest(convertToRequestType(i), DISABLE_REQUEST);
+            rc = mCtl.setRequest(
+                ::sirius::convertToRequestType(i), DISABLE_REQUEST);
             if (!SUCCEED(rc)) {
                 final |= rc;
                 LOGE(mModule, "Failed to cancel request %d", i);

@@ -343,7 +343,7 @@ int32_t RequestHandlerClient::convertToRequestType(
             LOGE(mModule, "Invalid msg, \"%s\"", msg);
             rc = NOT_FOUND;
         } else {
-            result = convertToRequestType(type);
+            result = ::sirius::convertToRequestType(type);
         }
     }
 
@@ -523,6 +523,8 @@ int32_t RequestHandlerClient::notifyDataReady(int32_t fd)
 
     return rc;
 }
+
+SiriusClientCore RequestHandlerClient::kCore;
 
 };
 

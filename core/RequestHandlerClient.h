@@ -60,8 +60,7 @@ protected:
     SocketClientStateMachine mSC;
 
 protected:
-    static SiriusClientCore  kCore;
-    static const RequestType kRequestTypeMap[REQUEST_TYPE_MAX_INVALID];
+    static SiriusClientCore kCore;
 };
 
 };

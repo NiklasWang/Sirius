@@ -24,7 +24,7 @@
 #include <stdatomic.h>
 
 #include "modules.h"
-#include "log.h"
+#include "logs.h"
 #include "RefBase.h"
 
 #ifndef __unused

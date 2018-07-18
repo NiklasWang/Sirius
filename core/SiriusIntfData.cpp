@@ -41,4 +41,3 @@ const char *getRequestName(RequestType type)
 }
 
 };
-

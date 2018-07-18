@@ -1,7 +1,8 @@
+#include <unistd.h>
+#include <stdio.h>
 #include <string.h>
 #include <fcntl.h>
 
-#include "common.h"
 #include "LogImpl.h"
 
 //#define SAVE_FILE_FS
@@ -9,6 +10,7 @@
 #ifdef DBG_ASSERT_RAISE_TRAP
 #include "signal.h"
 #endif
+
 #ifdef BUILD_ANDROID_AP
 #include <utils/Log.h>
 
@@ -65,9 +67,9 @@ static const char *const gLogType[] = {
     [LOG_TYPE_MAX_INVALID] = "<INVA>",
 };
 
-static char    gProcess[PATH_MAX]    = { '\0' };
+static char    gProcess[PATH_MAX] = { '\0' };
 #ifdef SAVE_FILE_FS
-static int32_t gLogfd                = -1;
+static int32_t gLogfd = -1;
 static char    gLogLine[LOG_MAX_LEN_PER_LINE];
 static pthread_mutex_t gWriteLock = PTHREAD_MUTEX_INITIALIZER;
 #endif

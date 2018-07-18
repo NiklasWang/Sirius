@@ -62,12 +62,13 @@ public:
      public:
         const char *whoamI();
         TaskType getType() { return type; }
-        SyncType *getSync() { return &sync; };
-        void setFinalRc(int32_t rc) { final_rc = rc; };
-        int32_t getFinalRc() { return final_rc; };
-        void setid(uint32_t _id) { id = _id; };
-        uint32_t getid() { return id; };
-        virtual void *getTask() = 0;
+        SyncType *getSync() { return &sync; }
+        ModuleType getModule() { return module; }
+        void setFinalRc(int32_t rc) { final_rc = rc; }
+        int32_t getFinalRc() { return final_rc; }
+        void setid(uint32_t _id) { id = _id; }
+        uint32_t getid() { return id; }
+        virtual void *getTask() { return NULL; }
         explicit TaskBase(
             TaskType  _type = TYPE_MAX_INVALID,
             sync_type _sync = SYNC_TYPE) :

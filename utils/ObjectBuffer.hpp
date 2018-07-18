@@ -2,7 +2,7 @@
 #define _OBJECT_BUFFER_HPP_H_
 
 #include "ObjectBuffer.h"
-#include "log.h"
+#include "logs.h"
 #include "Atomic.h"
 
 namespace sirius {

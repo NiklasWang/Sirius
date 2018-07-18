@@ -4,6 +4,7 @@
 namespace sirius {
 
 bool SiriusClientCore::kHeaderInited = false;
+Header SiriusClientCore::kHeader;
 
 SiriusClientCore::SiriusClientCore() :
     mConstructed(false),

@@ -3,7 +3,7 @@
 
 #include "clist.h"
 #include "QueueT.h"
-#include "log.h"
+#include "logs.h"
 
 namespace sirius {
 

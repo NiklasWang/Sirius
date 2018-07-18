@@ -76,6 +76,7 @@ private:
     struct InternalTask {
         ModuleType module;
         ModuleType getModule();
+        InternalTask();
     };
 
     struct TaskBase {
