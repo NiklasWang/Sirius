@@ -85,7 +85,7 @@ private:
     int32_t    mServerFd;
     status     mStatus;
     ModuleType mModule;
-    int32_t    mCancelWait;
+    bool       mCancelWait;
     ThreadT<cmd_info>   mThread;
 
 private:

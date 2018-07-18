@@ -1,3 +1,4 @@
+#include "common.h"
 #include "configuration.h"
 #include "RequestHandler.h"
 #include "MemMgmt.h"
@@ -17,12 +18,13 @@ const char *RequestHandler::getName()
 RequestHandler::RequestHandler(HandlerOpsIntf *ops,
     RequestType type, const char *name, uint32_t memNum) :
     mConstructed(false),
-    mModule(MODULE_REQUEST_HANDLER),
     mName(name),
     mType(type),
     mMemShared(false),
     mMemNum(memNum),
     mMem(NULL),
+    mThreads(NULL),
+    mModule(MODULE_REQUEST_HANDLER),
     mOps(ops)
 {
     ASSERT_LOG(mModule, NOTNULL(ops), "Ops shouldn't be NULL");
@@ -310,7 +312,7 @@ int32_t RequestHandler::convertToClientFd(
 {
     int32_t rc = NO_ERROR;
 
-    if (!COMPARE_SAME_STRING(msg, prefix, strlen(prefix))) {
+    if (!COMPARE_SAME_LEN_STRING(msg, prefix, strlen(prefix))) {
         LOGE(mModule, "Prefix not match, %s VS %s", msg, prefix);
         rc = PARAM_INVALID;
     }
@@ -432,7 +434,7 @@ int32_t RequestHandler::startServerLoop()
     if (SUCCEED(rc)) {
         rc = mOps->getHeader(mHeader);
         if (!SUCCEED(rc)) {
-            LOGE(mModule, "Failed to set memory size %d, %d", size, rc);
+            LOGE(mModule, "Failed to set header, %d", rc);
         }
     }
 
@@ -440,7 +442,8 @@ int32_t RequestHandler::startServerLoop()
         int32_t size = getExpectedBufferSize();
         rc = mOps->setMemSize(getType(), size);
         if (!SUCCEED(rc)) {
-            LOGE(mModule, "Failed to set memory %dB to %s, %d", size, )
+            LOGE(mModule, "Failed to set memory %dB to %s, %d",
+                size, getName(), rc);
         }
     }
 
@@ -495,7 +498,7 @@ int32_t RequestHandler::onMemRefreshed(int32_t fd)
     void *dat  = NULL;
 
     if (SUCCEED(rc)) {
-        for (int32_t i = 0; i < mMemNum; i++) {
+        for (uint32_t i = 0; i < mMemNum; i++) {
             if (mMem[i].clientfd == fd) {
                 id  = mMem[i].id;
                 buf = mMem[i].buf;
@@ -603,7 +606,7 @@ int32_t RequestHandler::abort()
         }
     }
 
-    return final;
+    return rc;
 }
 
 int32_t RequestHandler::getExpectedBufferSize()

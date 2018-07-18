@@ -93,7 +93,7 @@ int32_t poll_server_fd(int32_t serverfd, int32_t *sharedfd)
 }
 
 int32_t poll_server_fd_wait(int32_t serverfd,
-    int32_t *sharedfd, int32_t *cancel)
+    int32_t *sharedfd, bool *cancel)
 {
     int32_t rc = NO_ERROR;
 

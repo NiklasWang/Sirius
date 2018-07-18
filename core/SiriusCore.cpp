@@ -235,7 +235,7 @@ int32_t SiriusCore::convertToRequestType(
         LOGE(mModule, "Invalid msg, %s", msg);
         rc = PARAM_INVALID;
     } else {
-        *type = gRequestTypeMap[value];
+        *type = convertToRequestType(value);
     }
 
     return rc;
@@ -248,7 +248,7 @@ int32_t SiriusCore::enableCachedRequests()
     for (int32_t i = 0; i < REQUEST_TYPE_MAX_INVALID; i++) {
         if (mCachedRequest[i]) {
             LOGD(mModule, "Enable cached request %d", i);
-            rc = request(gRequestTypeMap[i]);
+            rc = request(convertToRequestType(i));
             if (!SUCCEED(rc)) {
                 LOGE(mModule, "Failed to create cached request %d", rc);
             } else {
@@ -283,7 +283,7 @@ int32_t SiriusCore::destruct()
 
     if (SUCCEED(rc)) {
         for (int32_t i = 0; i < REQUEST_TYPE_MAX_INVALID; i++) {
-            rc = mCtl->setRequest(gRequestTypeMap[i], DISABLE_REQUEST);
+            rc = mCtl.setRequest(convertToRequestType(i), DISABLE_REQUEST);
             if (!SUCCEED(rc)) {
                 final |= rc;
                 LOGE(mModule, "Failed to cancel request %d", i);
@@ -385,13 +385,6 @@ int32_t SiriusCore::destruct()
     return rc;
 }
 
-RequestType getRequestType(RequestType type)
-{
-    return (type < 0 ||
-        type > REQUEST_TYPE_MAX_INVALID) ?
-        REQUEST_TYPE_MAX_INVALID : type;
-}
-
 int32_t SiriusCore::createRequestHandler(RequestType type)
 {
     int32_t rc = NO_ERROR;
@@ -480,7 +473,7 @@ int32_t SiriusCore::request(RequestType type)
 int32_t SiriusCore::abort(RequestType type)
 {
     int32_t rc = NO_ERROR;
-    RequestHandler *requestHandler = NULL;
+    RequestHandlerIntf *requestHandler = NULL;
 
     if (SUCCEED(rc)) {
         if (!requested(type)) {
@@ -635,7 +628,7 @@ int32_t SiriusCore::setRequestedMark(RequestType type, bool enable)
 
 int32_t SiriusCore::getHeader(Header &header)
 {
-    return mCtl.getHeader(header)
+    return mCtl.getHeader(header);
 }
 
 SiriusCore::SiriusCore() :
@@ -689,15 +682,6 @@ RequestHandler *SiriusCore::createHandler(RequestType type)
 
     return request;
 }
-
-const RequestType SiriusCore::gRequestTypeMap[] = {
-    [PREVIEW_NV21]   = PREVIEW_NV21,
-    [PICTURE_NV21]   = PICTURE_NV21,
-    [PICTURE_BAYER]  = PICTURE_BAYER,
-    [EXTENDED_EVENT] = EXTENDED_EVENT,
-    [CUSTOM_DATA]    = CUSTOM_DATA,
-    [REQUEST_TYPE_MAX_INVALID] = REQUEST_TYPE_MAX_INVALID,
-};
 
 };
 

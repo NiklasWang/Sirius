@@ -14,7 +14,7 @@ namespace sirius {
 
 class HandlerOpsIntf {
 public:
-    virtual int32_t send(RequestType type, int32_t id, void *header, uint8_t *dat) = 0;
+    virtual int32_t send(RequestType type, int32_t id, void *header, void *dat) = 0;
     virtual int32_t send(int32_t event, int32_t arg1, int32_t arg2) = 0;
     virtual int32_t allocateBuf(void **buf, int32_t len, int32_t *fd) = 0;
     virtual int32_t releaseBuf(void *buf) = 0;

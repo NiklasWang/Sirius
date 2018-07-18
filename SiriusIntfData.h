@@ -3,6 +3,8 @@
 
 #include <stdint.h>
 
+namespace sirius {
+
 enum RequestType {
     PREVIEW_NV21,
     PICTURE_NV21,
@@ -61,6 +63,12 @@ struct Header {
     int32_t bayerPictureW;
     int32_t bayerPictureH;
     Pattern bayerPattern;
+};
+
+RequestType getRequestType(RequestType type);
+const char *getRequestName(RequestType type);
+RequestType convertToRequestType(int32_t index);
+
 };
 
 #endif

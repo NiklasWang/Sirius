@@ -8,7 +8,7 @@ EventClient::EventClient() :
         EXTENDED_EVENT,
         "Extended Event Request Client",
         REQUEST_HANDLER_NO_MEMORY_SHARE),
-    mModule(MODULE_PREVIEW_REQUEST),
+    mModule(MODULE_PREVIEW_REQUEST)
 {
 }
 
@@ -64,7 +64,7 @@ int32_t EventClient::sizeOfHeader()
     return 0;
 }
 
-int32_t EventClient::sizeOfData(void *header)
+int32_t EventClient::sizeOfData(void * /*header*/)
 {
     return 0;
 }
@@ -73,8 +73,6 @@ int32_t EventClient::copyDataToServer(
     uint8_t * /*dst*/, void * /*header*/, uint8_t * /*src*/)
 {
     return NO_ERROR;
-}
-
 }
 
 };

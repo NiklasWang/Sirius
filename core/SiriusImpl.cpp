@@ -182,7 +182,7 @@ int32_t SiriusImpl::pushToThread(TaskType type, void *value)
     }
 
     if (SUCCEED(rc)) {
-        rc = mThreads->run(
+        rc = mThreads->run<TaskBase>(
             [this](TaskBase *_task) -> int32_t {
                 int32_t _rc = processTask(_task);
                 taskDone(_task, _rc);

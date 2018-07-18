@@ -1,7 +1,7 @@
 #include "Sirius.h"
 #include "SiriusImpl.h"
 
-using namespace sirius;
+namespace sirius {
 
 #define CHECK_VALID_IMPL() \
     ({ \
@@ -82,4 +82,6 @@ Sirius::~Sirius()
         mImpl = NULL;
     }
 }
+
+};
 

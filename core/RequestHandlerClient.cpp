@@ -157,8 +157,7 @@ int32_t RequestHandlerClient::prepare()
         if (!kCore.ready()) {
             rc = kCore.prepare();
             if (!SUCCEED(rc)) {
-                LOGI(mModule, "Failed to prepare sirius client core, "
-                    "Server may not started, %s %d", strerror(errono), rc);
+                LOGI(mModule, "Failed to prepare sirius client core, %d", rc);
             }
         }
     }
@@ -168,7 +167,7 @@ int32_t RequestHandlerClient::prepare()
             rc = mSC.connectServer();
             if (!SUCCEED(rc)) {
                 LOGD(mModule, "Failed to connect server, "
-                    "may not started, %s %d", strerror(errono), rc);
+                    "may not started, %s %d", strerror(errno), rc);
                 rc = NOT_EXIST;
             } else {
                 mConnected = true;
@@ -209,7 +208,6 @@ int32_t RequestHandlerClient::syncServerMemory()
 {
     int32_t rc = NO_ERROR;
     int32_t final = rc;
-    char msg[SOCKET_DATA_MAX_LEN];
 
     for (int32_t i = 0; i < mMemMaxNum; i++) {
         rc = acceptSingleMemory();
@@ -334,7 +332,7 @@ int32_t RequestHandlerClient::convertToRequestType(
     int32_t rc = NO_ERROR;
     int32_t type = -1;
 
-    if (!COMPARE_SAME_STRING(msg, prefix, strlen(prefix))) {
+    if (!COMPARE_SAME_LEN_STRING(msg, prefix, strlen(prefix))) {
         LOGE(mModule, "Prefix not match, %s VS %s", msg, prefix);
         rc = PARAM_INVALID;
     }
@@ -345,7 +343,7 @@ int32_t RequestHandlerClient::convertToRequestType(
             LOGE(mModule, "Invalid msg, \"%s\"", msg);
             rc = NOT_FOUND;
         } else {
-            result = kRequestTypeMap[type];
+            result = convertToRequestType(type);
         }
     }
 
@@ -525,15 +523,6 @@ int32_t RequestHandlerClient::notifyDataReady(int32_t fd)
 
     return rc;
 }
-
-const RequestType SiriusCore::kRequestTypeMap[] = {
-    [PREVIEW_NV21]   = PREVIEW_NV21,
-    [PICTURE_NV21]   = PICTURE_NV21,
-    [PICTURE_BAYER]  = PICTURE_BAYER,
-    [EXTENDED_EVENT] = EXTENDED_EVENT,
-    [CUSTOM_DATA]    = CUSTOM_DATA,
-    [REQUEST_TYPE_MAX_INVALID] = REQUEST_TYPE_MAX_INVALID,
-};
 
 };
 

@@ -57,7 +57,7 @@ SocketClientStateMachine::SocketClientStateMachine() :
     mServerFd(-1),
     mStatus(STATUS_UNINITED),
     mModule(MODULE_SOCKET_CLIENT_SM),
-    mCancelWait(0),
+    mCancelWait(false),
     mThread(getModuleName(mModule))
 {
 }

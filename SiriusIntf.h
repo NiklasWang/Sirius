@@ -3,7 +3,9 @@
 
 #include "SiriusIntfData.h"
 
-typedef int32_t (*RequestCbFunc)(RequestType type, int32_t id, void *header, uint8_t *dat);
+namespace sirius {
+
+typedef int32_t (*RequestCbFunc)(RequestType type, int32_t id, void *header, void *dat);
 typedef int32_t (*EventCbFunc)(int32_t event, int32_t arg1, int32_t arg2);
 
 class SiriusIntf {
@@ -15,6 +17,8 @@ public:
 
 public:
     virtual ~SiriusIntf() {}
+};
+
 };
 
 #endif

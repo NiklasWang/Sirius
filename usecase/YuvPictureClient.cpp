@@ -35,7 +35,7 @@ int32_t YuvPictureClient::sizeOfHeader()
 
 int32_t YuvPictureClient::sizeOfData(void *header)
 {
-    PreviewNV21Header *_header =
+    PictureNV21Header *_header =
         static_cast<PictureNV21Header *>(header);
     return _header->w * _header->h * 3 / 2;
 }
@@ -67,7 +67,7 @@ int32_t YuvPictureClient::onYuvPictureReady(
 
 int32_t YuvPictureClient::copyDataToServer(uint8_t *dst, void *header, uint8_t *src)
 {
-    PreviewNV21Header *_header =
+    PictureNV21Header *_header =
         static_cast<PictureNV21Header *>(header);
     int32_t rc = CopyFrameWithoutStride(dst, _header, src);
     if (!SUCCEED(rc)) {

@@ -51,11 +51,13 @@ private:
         TYPE_MAX_INVALID,
     };
 
+public:
     struct TaskBase {
         uint32_t id;
         TaskType type;
         SyncType sync;
-        int32_t final_rc;
+        int32_t  final_rc;
+        ModuleType module;
         static const char * const kTaskString[];
      public:
         const char *whoamI();
@@ -69,7 +71,7 @@ private:
         explicit TaskBase(
             TaskType  _type = TYPE_MAX_INVALID,
             sync_type _sync = SYNC_TYPE) :
-            type(_type), sync(_sync) {}
+            type(_type), sync(_sync), module(MODULE_SIRIUS_IMPL) {}
         virtual ~TaskBase() {}
     };
 
@@ -86,6 +88,7 @@ private:
         void setTask(T *_arg) { arg = *_arg; };
     };
 
+private:
     typedef int32_t (SiriusImpl::*PushToThreadFunc)(TaskType type, void *arg);
 
     template <typename T, sync_type sync = SYNC_TYPE>

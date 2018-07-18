@@ -4,8 +4,8 @@
 #include "SiriusIntf.h"
 
 namespace sirius {
-    class SiriusImpl;
-};
+
+class SiriusImpl;
 
 class Sirius :
     public SiriusIntf {
@@ -24,7 +24,9 @@ private:
     Sirius &operator=(const Sirius &rhs);
 
 private:
-    sirius::SiriusImpl *mImpl;
+    SiriusImpl *mImpl;
+};
+
 };
 
 #endif

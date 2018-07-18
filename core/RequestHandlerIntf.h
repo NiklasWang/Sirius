@@ -1,7 +1,9 @@
 #ifndef _REQUEST_HANDLER_INTF_H_
 #define _REQUEST_HANDLER_INTF_H_
 
-#include "SiriusIntfData.h"
+#include "SiriusIntf.h"
+
+namespace sirius {
 
 class RequestHandlerIntf {
 public:
@@ -19,6 +21,8 @@ public:
 
 public:
     virtual ~RequestHandlerIntf() {}
+};
+
 };
 
 #endif

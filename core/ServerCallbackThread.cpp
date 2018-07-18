@@ -9,14 +9,16 @@ int32_t ServerCallbackThread::send(RequestType type, int32_t id, void *head, voi
 
     if (SUCCEED(rc)) {
         rc = mThreads->run(
-            [this]() -> int32_t {
+            [=]() -> int32_t {
+                int32_t _rc = NO_ERROR;
                 if (NOTNULL(mCbFunc)) {
                     mDatCnt++;
-                    rc = mCbFunc(type, id, head, dat);
+                    _rc = mCbFunc(type, id, head, dat);
                 } else {
                     LOGE(mModule, "Data callback func not set, can't send.");
-                    rc = NOT_INITED;
+                    _rc = NOT_INITED;
                 }
+                return _rc;
             }
         );
         if (!SUCCEED(rc)) {
@@ -33,14 +35,16 @@ int32_t ServerCallbackThread::send(int32_t event, int32_t arg1, int32_t arg2)
 
     if (SUCCEED(rc)) {
         rc = mThreads->run(
-            [this]() -> int32_t {
+            [=]() -> int32_t {
+                int32_t _rc = NO_ERROR;
                 if (NOTNULL(mEvtCbFunc)) {
                     mEvtCnt++;
-                    rc = mEvtCbFunc(event, arg1, arg2);
+                    _rc = mEvtCbFunc(event, arg1, arg2);
                 } else {
                     LOGE(mModule, "Data callback func not set, can't send.");
-                    rc = NOT_INITED;
+                    _rc = NOT_INITED;
                 }
+                return _rc;
             }
         );
         if (!SUCCEED(rc)) {

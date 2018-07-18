@@ -25,7 +25,8 @@ int32_t ThreadPool::run(std::function<int32_t (T *)> func, T *arg, sync_type syn
         rc = worker->run<T>(func, arg, sync,
             [this](Thread *thread) -> int32_t {
                 return callback(thread);
-            });
+            }
+        );
         if (!SUCCEED(rc)) {
             LOGD(mModule, "Failed to run on worker thread, %d", rc);
         }

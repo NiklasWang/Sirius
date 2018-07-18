@@ -209,7 +209,7 @@ int32_t stop_server(int32_t sockfd)
 }
 
 int32_t poll_accept_wait(int32_t sockfd,
-    int32_t *clientfd, int32_t *cancel)
+    int32_t *clientfd, bool *cancel)
 {
     int32_t rc = NO_ERROR;
 
@@ -234,7 +234,7 @@ int32_t poll_accept_wait(int32_t sockfd,
 }
 
 int32_t poll_read_wait(int32_t clientfd,
-    char *dat, int32_t max_len, int32_t *read_len, int32_t *cancel)
+    char *dat, int32_t max_len, int32_t *read_len, bool *cancel)
 {
     int32_t rc = NO_ERROR;
 

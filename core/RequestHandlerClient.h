@@ -16,6 +16,9 @@ public:
     int32_t onDataReady(void *header, uint8_t *dat);
     int32_t prepare();
 
+    const char *getName();
+    RequestType getType();
+
 protected:
     virtual int32_t sizeOfHeader() = 0;
     virtual int32_t sizeOfData(void *header) = 0;
@@ -28,14 +31,10 @@ protected:
     int32_t destruct();
 
 private:
-    const char *getName();
-    RequestType getType();
     int32_t syncServerMemory();
     int32_t acceptSingleMemory();
-    int32_t addMemoryMap(RequestType type,
-        void *mem, int32_t fd, int32_t size);
-    int32_t findMemoryMap(RequestType type,
-        int32_t fd, void **mem, int32_t *size);
+    int32_t addMemoryMap(void *mem, int32_t fd, int32_t size);
+    int32_t findMemoryMap(int32_t fd, void **mem, int32_t *size);
     int32_t releaseAllMems();
     int32_t notifyDataReady(int32_t fd);
     int32_t convertToRequestType(char *msg, const char *prefix, RequestType &result);

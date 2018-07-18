@@ -104,7 +104,7 @@ private:
     bool       mCancelConnect;
     bool       mCancelMsg;
     ModuleType mModule;
-    ThreadT<cmd_type>   mThread;
+    ThreadT<cmd_info> mThread;
 
 private:
     static int32_t      kServerFd;

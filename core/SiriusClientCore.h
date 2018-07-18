@@ -5,6 +5,7 @@
 #include "SiriusIntf.h"
 #include "ServerClientControl.h"
 #include "BufferMgrIntf.h"
+#include "HandlerOpsIntf.h"
 #include "SocketClientStateMachine.h"
 
 namespace sirius {

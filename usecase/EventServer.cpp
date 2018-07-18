@@ -42,7 +42,7 @@ int32_t EventServer::startServerLoop()
         }
 
         if (SUCCEED(rc)) {
-            rc = convertMsgToEvt(msg, &info);
+            rc = convertMsgToEvt(msg, info);
             if (!SUCCEED(rc)) {
                 LOGE(mModule, "Failed to convert, %s", msg);
             }
@@ -81,7 +81,7 @@ int32_t EventServer::convertMsgToEvt(char *msg, EvtInfo &info)
 
     if (SUCCEED(rc)) {
         int32_t len = strlen(SOCKET_EVENT_REQUEST_FORMAT);
-        if (!COMPARE_SAME_STRING(msg,
+        if (!COMPARE_SAME_LEN_STRING(msg,
             SOCKET_EVENT_REQUEST_FORMAT, len)) {
             LOGE(mModule, "Invalid evt msg, %s", msg);
             rc = PARAM_INVALID;

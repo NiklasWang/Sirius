@@ -15,6 +15,7 @@ LOCAL_SRC_FILES :=                      \
     core/RequestHandlerClient.cpp       \
     core/ServerCallbackThread.cpp       \
     core/ServerClientControl.cpp        \
+    core/SiriusIntfData.cpp             \
     socket/socket_server.cpp            \
     socket/socket_client.cpp            \
     socket/server_client_common.cpp     \

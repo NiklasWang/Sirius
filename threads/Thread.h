@@ -73,10 +73,9 @@ private:
         THREAD_CONTROL_EXIT_THREAD,
     };
 
-    struct InternalTask :
-        public Identifier {
-        InternalTask() :
-            Identifier(MODULE_THREAD_POOL) {};
+    struct InternalTask {
+        ModuleType module;
+        ModuleType getModule();
     };
 
     struct TaskBase {

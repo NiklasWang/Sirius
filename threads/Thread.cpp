@@ -304,5 +304,15 @@ uint32_t Thread::TaskBase::id()
     return index;
 }
 
+Thread::InternalTask::InternalTask() :
+    module(MODULE_THREAD_POOL)
+{
+}
+
+ModuleType Thread::InternalTask::getModule()
+{
+    return module;
+}
+
 };
 

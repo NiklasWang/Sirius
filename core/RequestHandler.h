@@ -24,8 +24,6 @@ public:
 public:
     virtual int32_t construct() override;
     virtual int32_t destruct() override;
-
-protected:
     RequestHandler(HandlerOpsIntf *ops,
         RequestType type, const char *name, uint32_t memNum);
     virtual ~RequestHandler();
@@ -58,7 +56,6 @@ private:
 
 private:
     bool          mConstructed;
-    ModuleType    mModule;
     const char   *mName;
     RequestType   mType;
     bool          mMemShared;
@@ -67,6 +64,7 @@ private:
     ThreadPoolEx *mThreads;
 
 protected:
+    ModuleType      mModule;
     Header          mHeader;
     HandlerOpsIntf *mOps;
     SocketServerStateMachine mSSSM;

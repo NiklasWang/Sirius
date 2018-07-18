@@ -97,7 +97,7 @@ int32_t SiriusClientCore::prepare()
             rc = mSC.connectServer();
             if (!SUCCEED(rc)) {
                 LOGD(mModule, "Failed to connect server, "
-                    "may not started, %s %d", strerror(errono), rc);
+                    "may not started, %s %d", strerror(errno), rc);
                 rc = NOT_EXIST;
             } else {
                 mConnected = true;
@@ -143,7 +143,7 @@ int32_t SiriusClientCore::prepare()
     }
 
     if (SUCCEED(rc)) {
-        rc = mBufMgr.import(&mCtlBuf, fd, size);
+        rc = mBufMgr->import(&mCtlBuf, fd, size);
         if (!SUCCEED(rc)) {
             LOGE(mModule, "Failed to import %d bytes memory %d, %d",
                 size, fd, rc);
@@ -213,8 +213,8 @@ int32_t SiriusClientCore::destruct()
     }
 
     if (SUCCEED(rc)) {
-        mBufMgr.clear_all();
-        rc = mBufMgr.deinit();
+        mBufMgr->clear_all();
+        rc = mBufMgr->deinit();
         if (!SUCCEED(rc)) {
             final |= rc;
             LOGE(mModule, "Failed to deinit ion buf mgr, %d", rc);
@@ -266,12 +266,12 @@ bool SiriusClientCore::requested(RequestType type)
 
 int32_t SiriusClientCore::importBuf(void **buf, int32_t fd, int32_t len)
 {
-    return mBufMgr.import(buf, fd, len);
+    return mBufMgr->import(buf, fd, len);
 }
 
 int32_t SiriusClientCore::releaseBuf(void *buf)
 {
-    return mBufMgr.release(buf);
+    return mBufMgr->release(buf);
 }
 
 int32_t SiriusClientCore::getUsedMem(RequestType type, int32_t *fd)
