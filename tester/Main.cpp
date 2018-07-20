@@ -3,11 +3,16 @@
 
 namespace sirius {
 
-extern ServerTester gTester;
+ServerTester gTester;
 
 int32_t _test_main()
 {
     int32_t rc = NO_ERROR;
+
+    gTester.prepare();
+    gTester.testUsecase(PREVIEW_NV21);
+    gTester.testUsecase(PICTURE_NV21);
+    gTester.testUsecase(EXTENDED_EVENT);
 
     return rc;
 }
