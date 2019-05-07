@@ -102,6 +102,12 @@ int32_t BufferMgr::release(void *buf)
     return SUCCEED(rc) ? mMgr->release(buf) : rc;
 }
 
+int32_t BufferMgr::release_remove(void *buf)
+{
+    int32_t rc = CONSTRUCT_IMPL_ONCE();
+    return SUCCEED(rc) ? mMgr->release_remove(buf) : rc;
+}
+
 void BufferMgr::clear_all()
 {
     CONSTRUCT_IMPL_ONCE();

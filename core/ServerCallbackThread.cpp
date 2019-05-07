@@ -12,17 +12,17 @@ int32_t ServerCallbackThread::send(RequestType type, int32_t id, void *head, voi
             [=]() -> int32_t {
                 int32_t _rc = NO_ERROR;
                 if (NOTNULL(mCbFunc)) {
-                    mDatCnt++;
+                    mRequestCnt++;
                     _rc = mCbFunc(type, id, head, dat);
                 } else {
-                    LOGE(mModule, "Data callback func not set, can't send.");
+                    LOGE(mModule, "Request callback func not set, can't send.");
                     _rc = NOT_INITED;
                 }
                 return _rc;
             }
         );
         if (!SUCCEED(rc)) {
-            LOGE(mModule, "Failed to run once thread, %d", rc);
+            LOGE(mModule, "Failed to send request, %d", rc);
         }
     }
 
@@ -41,6 +41,32 @@ int32_t ServerCallbackThread::send(int32_t event, int32_t arg1, int32_t arg2)
                     mEvtCnt++;
                     _rc = mEvtCbFunc(event, arg1, arg2);
                 } else {
+                    LOGE(mModule, "Event callback func not set, can't send.");
+                    _rc = NOT_INITED;
+                }
+                return _rc;
+            }
+        );
+        if (!SUCCEED(rc)) {
+            LOGE(mModule, "Failed to send event, %d", rc);
+        }
+    }
+
+    return rc;
+}
+
+int32_t ServerCallbackThread::send(int32_t type, void *data, int32_t size)
+{
+    int32_t rc = NO_ERROR;
+
+    if (SUCCEED(rc)) {
+        rc = mThreads->runWait(
+            [=]() -> int32_t {
+                int32_t _rc = NO_ERROR;
+                if (NOTNULL(mDataCbFunc)) {
+                    mDataCnt++;
+                    _rc = mDataCbFunc(type, data, size);
+                } else {
                     LOGE(mModule, "Data callback func not set, can't send.");
                     _rc = NOT_INITED;
                 }
@@ -48,17 +74,28 @@ int32_t ServerCallbackThread::send(int32_t event, int32_t arg1, int32_t arg2)
             }
         );
         if (!SUCCEED(rc)) {
-            LOGE(mModule, "Failed to run once thread, %d", rc);
+            LOGE(mModule, "Failed to send data, %d", rc);
         }
     }
 
     return rc;
 }
 
-int32_t ServerCallbackThread::setCb(RequestCbFunc requestCb, EventCbFunc eventCb)
+int32_t ServerCallbackThread::setCallback(RequestCbFunc requestCb)
 {
-    mCbFunc    = requestCb;
+    mCbFunc = requestCb;
+    return NO_ERROR;
+}
+
+int32_t ServerCallbackThread::setCallback(EventCbFunc eventCb)
+{
     mEvtCbFunc = eventCb;
+    return NO_ERROR;
+}
+
+int32_t ServerCallbackThread::setCallback(DataCbFunc dataCb)
+{
+    mDataCbFunc = dataCb;
     return NO_ERROR;
 }
 
@@ -67,9 +104,11 @@ ServerCallbackThread::ServerCallbackThread() :
     mModule(MODULE_SERVER_CB_THREAD),
     mCbFunc(NULL),
     mEvtCbFunc(NULL),
+    mDataCbFunc(NULL),
     mThreads(NULL),
+    mRequestCnt(0),
     mEvtCnt(0),
-    mDatCnt(0)
+    mDataCnt(0)
 {
 }
 

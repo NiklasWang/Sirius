@@ -16,6 +16,7 @@ public:
     int32_t flush(void *buf) override;
     int32_t import(void **buf, int32_t fd, int32_t len) override;
     int32_t release(void *buf) override;
+    int32_t release_remove(void *buf) override;
     void clear_all() override;
 
 public:

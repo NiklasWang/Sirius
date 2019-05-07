@@ -93,7 +93,7 @@ int32_t PreviewClient::CopyFrameWithoutStride(
     }
 
     offset_src = ALIGN_WITH_NUM(header->w, header->stride) *
-        ALIGN_WITH_NUM(header->w, header->scanline);
+        ALIGN_WITH_NUM(header->h, header->scanline);
     for (int32_t i = 0; i < (header->h / 2); i++) {
         memcpy(dst + offset_dst, src + offset_src, header->w);
         offset_dst += header->w;

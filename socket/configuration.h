@@ -24,9 +24,18 @@ namespace sirius {
 #define SOCKET_SERVER_SHARE_DONE      "Mem share done."
 #define SOCKET_CLIENT_NOTIFIER_STR    "Ready:"
 #define SOCKET_EVENT_REQUEST_FORMAT   "EVT:"
+#define SOCKET_DATA_NOTIFY_ENQUEUE    "E"
 
 #define REQUEST_HANDLER_MAX_MEMORY_NUM  10
 #define REQUEST_HANDLER_NO_MEMORY_SHARE 0
+
+#define TESTER_SOCKET_NAME       "sirius_tester_socket"
+#define TESTER_START_TEST        "Test start,"
+#define TESTER_SERVER_REPLY_OK   "OK"
+#define TESTER_SERVER_REPLY_FAIL "Failed"
+#define TESTER_REPORT_STATUS     "Status"
+#define TESTER_SERVER_FINISH     "Finish"
+#define TESTER_CLIENT_EXIT       "EXIT"
 
 };
 

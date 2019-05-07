@@ -11,7 +11,7 @@
 #include "signal.h"
 #endif
 
-#ifdef BUILD_ANDROID_AP
+#ifdef PRINT_LOGCAT_LOG
 #include <utils/Log.h>
 
 #undef LOG_TAG
@@ -51,8 +51,11 @@ int8_t gDebugController[][LOG_TYPE_MAX_INVALID + 1] = {
     {     0,    1,    1,    1,    1,    1,    0}, // MODULE_BAYER_PICTURE_REQUEST
     {     0,    1,    1,    1,    1,    1,    0}, // MODULE_EVT_REQUEST,
     {     0,    1,    1,    1,    1,    1,    0}, // MODULE_DATA_REQUEST,
+    {     0,    1,    1,    1,    1,    1,    0}, // MODULE_OBJECT_BUFFER,
     {     0,    1,    1,    1,    1,    1,    0}, // MODULE_UTILS
     {     0,    1,    1,    1,    1,    1,    0}, // MODULE_TOOLS
+    {     0,    1,    1,    1,    1,    1,    0}, // MODULE_SERVER_TESTER
+    {     0,    1,    1,    1,    1,    1,    0}, // MODULE_CLIENT_TESTER
     {     0,    1,    1,    1,    1,    1,    0}, // MODULE_TESTER
     {     0,    1,    1,    1,    1,    1,    0}, // MODULE_MAX_INVALID
 };
@@ -198,9 +201,15 @@ void __debug_log(const ModuleType module, const LogType type,
     __log_vsnprintf(buf, DBG_LOG_MAX_LEN, fmt, args);
     va_end(args);
 
+#ifdef PRINT_LOGCAT_LOG
     print_log(type, "%s %s%s: %s:+%d: %s",
         getProcessName(), getModuleShortName(module),
         getLogType(type), func, line, buf);
+#else
+    print_log(type, "%s %s%s: %s:+%d: %s\n",
+        getProcessName(), getModuleShortName(module),
+        getLogType(type), func, line, buf);
+#endif
 
     save_log("%s %s%s: %s:+%d: %s", getProcessName(),
         getModuleShortName(module),
@@ -319,11 +328,11 @@ static void save_log(const char * /*fmt*/, char * /*process*/,
 }
 #endif
 
-static void print_log(const LogType logt, const char *fmt,
-    char *process, const char *module, const char *type,
+static void print_log(const LogType logt __attribute__((unused)),
+    const char *fmt, char *process, const char *module, const char *type,
     const char *func, const int line, const char *buf)
 {
-#if defined(BUILD_ANDROID_AP)
+#ifdef PRINT_LOGCAT_LOG
     switch (logt) {
         case LOG_TYPE_NONE:
         case LOG_TYPE_DEBUG:
@@ -344,10 +353,8 @@ static void print_log(const LogType logt, const char *fmt,
             ALOGE(fmt, process, module, type, func, line, buf);
             break;
     }
-#elif defined(BUILD_LINUX_X86_64)
-    printf(fmt, process, module, type, func, line, buf);
 #else
-    #error Not supported system arch.
+    printf(fmt, process, module, type, func, line, buf);
 #endif
 }
 

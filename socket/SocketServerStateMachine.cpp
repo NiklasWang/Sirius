@@ -1,9 +1,9 @@
 #include "SocketServerStateMachine.h"
 #include "socket_server.h"
+#include "configuration.h"
 
 namespace sirius {
 
-int32_t SocketServerStateMachine::kServerFd = -1;
 
 int32_t SocketServerStateMachine::startServer()
 {
@@ -90,9 +90,10 @@ int32_t SocketServerStateMachine::setClientFd(int32_t fd)
 
     mClientFd = fd;
 
-    if (kServerFd != -1) {
+    if (mClientFd != -1) {
         updateToNewStatus(STATUS_STARTED);
     }
+
     if (mStatus == STATUS_STARTED) {
         updateToNewStatus(STATUS_ACCEPTED_CLIENT);
         rc = NO_ERROR;
@@ -118,19 +119,19 @@ int32_t SocketServerStateMachine::cancelWaitMsg()
     return NO_ERROR;
 }
 
-SocketServerStateMachine::SocketServerStateMachine() :
+SocketServerStateMachine::SocketServerStateMachine(
+    const char *socketName) :
     mConstructed(false),
     mOwnServer(false),
+    mServerFd(-1),
     mClientFd(-1),
     mStatus(STATUS_UNINITED),
     mWaitingMsg(false),
     mCancelConnect(false),
     mModule(MODULE_SOCKET_SERVER_SM),
+    mSocketName(socketName),
     mThread(getModuleName(mModule))
 {
-    if (kServerFd != -1) {
-        updateToNewStatus(STATUS_STARTED);
-    }
 }
 
 SocketServerStateMachine::~SocketServerStateMachine()
@@ -174,16 +175,23 @@ int32_t SocketServerStateMachine::destruct()
     }
 
     if (SUCCEED(rc)) {
+        rc = cancelWaitMsg();
+        if (!SUCCEED(rc)) {
+            LOGE(mModule, "Failed to cancel wait msg, %d", rc);
+        }
+    }
+
+    if (SUCCEED(rc)) {
         rc = cancelWaitConnect();
         if (!SUCCEED(rc)) {
-            LOGE(mModule, "Failed to cancel wait client");
+            LOGE(mModule, "Failed to cancel wait client, %d", rc);
         }
     }
 
     if (SUCCEED(rc)) {
         rc = mThread.destruct();
         if (!SUCCEED(rc)) {
-            LOGE(mModule, "Failed to destruct thread");
+            LOGE(mModule, "Failed to destruct thread, %d", rc);
         }
     }
 
@@ -192,9 +200,9 @@ int32_t SocketServerStateMachine::destruct()
             disconnect_client(mClientFd);
             mClientFd = -1;
         }
-        if (mOwnServer && kServerFd > 0) {
-            stop_server(kServerFd);
-            kServerFd = -1;
+        if (mOwnServer && mServerFd > 0) {
+            stop_server(mServerFd, mSocketName);
+            mServerFd = -1;
         }
     }
 
@@ -207,7 +215,7 @@ int32_t SocketServerStateMachine::processTask(cmd_info *info)
 
     switch (info->cmd) {
         case CMD_START_SERVER: {
-            rc = start_server(&kServerFd);
+            rc = start_server(&mServerFd, mSocketName);
             if (!SUCCEED(rc)) {
                 LOGE(mModule, "Failed to start server, %d", rc);
             } else {
@@ -216,7 +224,7 @@ int32_t SocketServerStateMachine::processTask(cmd_info *info)
         } break;
         case CMD_WAIT_CONNECTION: {
             mCancelConnect = false;
-            rc = poll_accept_wait(kServerFd, info->u.fd, &mCancelConnect);
+            rc = poll_accept_wait(mServerFd, info->u.fd, &mCancelConnect);
             if (rc == USER_ABORTED) {
                 LOGI(mModule, "Cancelled to wait connection.");
             } else if (!SUCCEED(rc)) {
@@ -432,9 +440,24 @@ int32_t SocketServerStateMachine::procCmdAcceptedClientState(
     int32_t rc = NO_ERROR;
 
     switch (cmd) {
+        case CMD_WAIT_CONNECTION: {
+            cmd_info info;
+            info.cmd  = cmd;
+            info.u.fd = (int32_t *)arg;
+            rc = executeOnThread(&info);
+            if (SUCCEED(rc)) {
+                info.sync.wait();
+                rc = info.rc;
+                if (SUCCEED(rc)) {
+                    updateToNewStatus(STATUS_ACCEPTED_CLIENT);
+                    LOGD(mModule, "Client connect to server.");
+                } else {
+                    LOGE(mModule, "Failed to connect client.");
+                }
+            }
+        }; break;
         case CMD_RECEIVE_MSG: {
             updateToNewStatus(STATUS_RECEIVING_MSG);
-
             cmd_info info;
             info.cmd = cmd;
             info.u.msg = (msg_info *)arg;
@@ -450,7 +473,6 @@ int32_t SocketServerStateMachine::procCmdAcceptedClientState(
         }; break;
         case CMD_SEND_MSG: {
             updateToNewStatus(STATUS_SENDING_MSG);
-
             cmd_info info;
             info.cmd = cmd;
             info.u.msg = (msg_info *)arg;
@@ -509,43 +531,7 @@ int32_t SocketServerStateMachine::procCmdReceivingMsgState(
 {
     int32_t rc = NO_ERROR;
 
-    switch (cmd) {
-        case CMD_SEND_MSG: {
-            updateToNewStatus(STATUS_SENDING_MSG);
-
-            cmd_info info;
-            info.cmd = cmd;
-            info.u.msg = (msg_info *)arg;
-            rc = executeOnThread(&info);
-            if (SUCCEED(rc)) {
-                info.sync.wait();
-                rc = info.rc;
-                if (!SUCCEED(rc)) {
-                    LOGE(mModule, "Failed to send msg to client.");
-                }
-            }
-            updateToNewStatus(STATUS_ACCEPTED_CLIENT);
-        }; break;
-        case CMD_SEND_FD: {
-            updateToNewStatus(STATUS_SENDING_FD);
-
-            cmd_info info;
-            info.cmd = cmd;
-            info.u.fd = (int32_t *)arg;
-            rc = executeOnThread(&info);
-            if (SUCCEED(rc)) {
-                info.sync.wait();
-                rc = info.rc;
-                if (!SUCCEED(rc)) {
-                    LOGE(mModule, "Failed to send fd to client.");
-                }
-            }
-            updateToNewStatus(STATUS_ACCEPTED_CLIENT);
-        }; break;
-        default: {
-            logInvalidCmd(cmd);
-        } break;
-    }
+    LOGE(mModule, "Invalid cmd %s in %s state arg addr %p", cmdName(cmd), stateName(mStatus), arg);
 
     return rc;
 }
@@ -555,43 +541,7 @@ int32_t SocketServerStateMachine::procCmdSendingMsgState(
 {
     int32_t rc = NO_ERROR;
 
-    switch (cmd) {
-        case CMD_RECEIVE_MSG: {
-            updateToNewStatus(STATUS_RECEIVING_MSG);
-
-            cmd_info info;
-            info.cmd = cmd;
-            info.u.msg = (msg_info *)arg;
-            rc = executeOnThread(&info);
-            if (SUCCEED(rc)) {
-                info.sync.wait();
-                rc = info.rc;
-                if (!SUCCEED(rc)) {
-                    LOGE(mModule, "Failed to receive msg from client.");
-                }
-            }
-            updateToNewStatus(STATUS_ACCEPTED_CLIENT);
-        }; break;
-        case CMD_RECEIVE_FD: {
-            updateToNewStatus(STATUS_RECEIVING_FD);
-
-            cmd_info info;
-            info.cmd = cmd;
-            info.u.fd = (int32_t *)arg;
-            rc = executeOnThread(&info);
-            if (SUCCEED(rc)) {
-                info.sync.wait();
-                rc = info.rc;
-                if (!SUCCEED(rc)) {
-                    LOGE(mModule, "Failed to receive fd from client.");
-                }
-            }
-            updateToNewStatus(STATUS_ACCEPTED_CLIENT);
-        }; break;
-        default: {
-            logInvalidCmd(cmd);
-        } break;
-    }
+    LOGE(mModule, "Invalid cmd %s in %s state arg addr %p", cmdName(cmd), stateName(mStatus), arg);
 
     return rc;
 }
@@ -599,13 +549,21 @@ int32_t SocketServerStateMachine::procCmdSendingMsgState(
 int32_t SocketServerStateMachine::procCmdReceivingFdState(
     cmd_type cmd, void *arg)
 {
-    return procCmdReceivingMsgState(cmd, arg);
+    int32_t rc = NO_ERROR;
+
+    LOGE(mModule, "Invalid cmd %s in %s state arg addr %p", cmdName(cmd), stateName(mStatus), arg);
+
+    return rc;
 }
 
 int32_t SocketServerStateMachine::procCmdSendingFdState(
     cmd_type cmd, void *arg)
 {
-    return procCmdSendingMsgState(cmd, arg);
+    int32_t rc = NO_ERROR;
+
+    LOGE(mModule, "Invalid cmd %s in %s state arg addr %p", cmdName(cmd), stateName(mStatus), arg);
+
+    return rc;
 }
 
 SocketServerStateMachine::SocketServerStateMachine(
@@ -622,6 +580,7 @@ SocketServerStateMachine &SocketServerStateMachine::operator=(
     mCancelConnect = false;
     mModule = rhs.mModule;
     mClientFd = -1;
+    mSocketName = rhs.mSocketName;
 
     if (!SUCCEED(construct())) {
         LOGE(mModule, "Failed to construct while copy construction");

@@ -28,7 +28,7 @@ RequestHandler::RequestHandler(HandlerOpsIntf *ops,
     mOps(ops)
 {
     ASSERT_LOG(mModule, NOTNULL(ops), "Ops shouldn't be NULL");
-    ASSERT_LOG(mModule, memNum > 0,  "Mem num shoudn't be 0");
+    ASSERT_LOG(mModule, memNum >= 0,  "Mem num shoudn't be < 0");
     ASSERT_LOG(mModule, mMemNum < REQUEST_HANDLER_MAX_MEMORY_NUM,
         "Too much mem to share, %d/%d", mMemNum, REQUEST_HANDLER_MAX_MEMORY_NUM);
     ASSERT_LOG(mModule, getRequestType(type) != REQUEST_TYPE_MAX_INVALID,
@@ -79,10 +79,36 @@ int32_t RequestHandler::destruct()
         mConstructed = false;
     }
 
+    if(SUCCEED(rc)){
+        rc = mSSSM.cancelWaitMsg();
+        if (!SUCCEED(rc)) {
+            final |= rc;
+            LOGE(mModule, "Failed to cancel ssm wait msg, %d", rc);
+        }
+    }
+
+    if (SUCCEED(rc)) {
+        rc = mSSSM.cancelWaitConnect();
+        if (!SUCCEED(rc)) {
+            final |= rc;
+            LOGE(mModule, "Failed to cancel ssm connect, %d", rc);
+        }
+    }
+
     if (SUCCEED(rc)) {
         if (NOTNULL(mThreads)) {
             mThreads->removeInstance();
             mThreads = NULL;
+        }
+    }
+
+
+    if (SUCCEED(rc)) {
+        rc = releaseMem();
+        if (!SUCCEED(rc)) {
+            LOGE(mModule, "Failed to release all buffers, %d", rc);
+            final |= rc;
+            rc = NO_ERROR;
         }
     }
 
@@ -91,15 +117,6 @@ int32_t RequestHandler::destruct()
         if (!SUCCEED(rc)) {
             final |= rc;
             LOGE(mModule, "Failed to destruct ssm, %d", rc);
-        }
-    }
-
-    if (SUCCEED(rc)) {
-        rc = releaseMem();
-        if (!SUCCEED(rc)) {
-            LOGE(mModule, "Failed to release all buffers, %d", rc);
-            final |= rc;
-            rc = NO_ERROR;
         }
     }
 
@@ -302,7 +319,7 @@ int32_t RequestHandler::shareSingleMem(int32_t fd)
         if (!SUCCEED(rc)) {
             LOGE(mModule, "Failed to add memory to controller, %d", rc);
         }
-     }
+    }
 
     return rc;
 }
@@ -317,7 +334,7 @@ int32_t RequestHandler::convertToClientFd(
         rc = PARAM_INVALID;
     }
 
-    if (!SUCCEED(rc)) {
+    if (SUCCEED(rc)) {
         *clientfd = atoi(msg + strlen(prefix) + 1);
         if (*clientfd <= 0) {
             LOGE(mModule, "Invalid msg, \"%s\"", msg);
@@ -430,6 +447,7 @@ int32_t RequestHandler::onClientReady()
 int32_t RequestHandler::startServerLoop()
 {
     int32_t rc = NO_ERROR;
+    int32_t size = 0;
 
     if (SUCCEED(rc)) {
         rc = mOps->getHeader(mHeader);
@@ -439,7 +457,7 @@ int32_t RequestHandler::startServerLoop()
     }
 
     if (SUCCEED(rc)) {
-        int32_t size = getExpectedBufferSize();
+        size = getExpectedBufferSize();
         rc = mOps->setMemSize(getType(), size);
         if (!SUCCEED(rc)) {
             LOGE(mModule, "Failed to set memory %dB to %s, %d",
@@ -454,11 +472,12 @@ int32_t RequestHandler::startServerLoop()
         }
     }
 
+
     if (SUCCEED(rc)) {
         do {
             int32_t fd = 0;
-            RESETRESULT(rc);
             char msg[SOCKET_DATA_MAX_LEN];
+            RESETRESULT(rc);
             if (SUCCEED(rc)) {
                 msg[0] = '\0';
                 rc = mSSSM.receiveMsg(msg, SOCKET_DATA_MAX_LEN);
@@ -471,16 +490,24 @@ int32_t RequestHandler::startServerLoop()
             }
 
             if (SUCCEED(rc)) {
-                rc = convertToClientFd(msg, SOCKET_CLIENT_NOTIFIER_STR, &fd);
-                if (!SUCCEED(rc)) {
-                    LOGE(mModule, "Failed to convert, %s", msg);
-                }
-            }
+                for (int32_t i = 0; msg[i] != '\0' && i < SOCKET_DATA_MAX_LEN; i++) {
+                    if (COMPARE_SAME_LEN_STRING(msg + i,
+                        SOCKET_CLIENT_NOTIFIER_STR,
+                        strlen(SOCKET_CLIENT_NOTIFIER_STR))) {
+                        if (SUCCEED(rc)) {
+                            rc = convertToClientFd(msg + i, SOCKET_CLIENT_NOTIFIER_STR, &fd);
+                            if (!SUCCEED(rc)) {
+                                LOGE(mModule, "Failed to convert, %s", msg);
+                            }
+                        }
 
-            if (SUCCEED(rc)) {
-                rc = onMemRefreshed(fd);
-                if (!SUCCEED(rc)) {
-                    LOGE(mModule, "Failed to process freshed memory, %d", rc);
+                        if (SUCCEED(rc)) {
+                            rc = onMemRefreshed(fd);
+                            if (!SUCCEED(rc)) {
+                                LOGE(mModule, "Failed to process freshed memory, %d", rc);
+                            }
+                        }
+                    }
                 }
             }
         } while (rc != USER_ABORTED);
@@ -518,7 +545,7 @@ int32_t RequestHandler::onMemRefreshed(int32_t fd)
             LOGE(mModule, "Failed to get mem status, %d.", rc);
         }
         if (fresh != FRESH_MEMORY) {
-            LOGE(mModule, "Invalid mem status, should be fresh.");
+            LOGE(mModule, "Invalid mem status, should be fresh, fd %d.", fd);
             rc = NOT_EXIST;
         }
     }
@@ -535,10 +562,21 @@ int32_t RequestHandler::onMemRefreshed(int32_t fd)
     }
 
     if (SUCCEED(rc)) {
-        rc = mOps->send(getType(), id, head, dat);
+        rc = sendFreshData(getType(), id, head, dat);
         if (!SUCCEED(rc)) {
             LOGE(mModule, "Failed to send callback, %d", rc);
         }
+    }
+
+    return rc;
+}
+
+int32_t RequestHandler::sendFreshData(
+    RequestType type, int32_t id, void *head, void *dat)
+{
+    int32_t rc = mOps->send(type, id, head, dat);
+    if (!SUCCEED(rc)) {
+        LOGE(mModule, "Failed to send callback, %d", rc);
     }
 
     return rc;
@@ -567,7 +605,7 @@ int32_t RequestHandler::enqueue(int32_t id)
         rc = mOps->getMemStatus(getType(), clientFd, &fresh);
         if (SUCCEED(rc)) {
             if (fresh == USED_MEMORY) {
-                LOGE(mModule, "Memory already enqueued.");
+                LOGE(mModule, "Memory already enqueued, fd %d", clientFd);
                 rc = NOT_REQUIRED;
             }
         }

@@ -1,6 +1,6 @@
 #include "common.h"
 #include "EventClient.h"
-
+#include "TimeEx.h"
 namespace sirius {
 
 EventClient::EventClient() :
@@ -30,6 +30,8 @@ int32_t EventClient::destruct()
 int32_t EventClient::onEventReady(int32_t event, int32_t arg1, int32_t arg2)
 {
     int32_t rc = NO_ERROR;
+    static RWLock gMsgLock;
+    RWLock::AutoWLock l(gMsgLock);
 
     if (SUCCEED(rc)) {
         if (!requested()) {
@@ -44,6 +46,7 @@ int32_t EventClient::onEventReady(int32_t event, int32_t arg1, int32_t arg2)
             if (!SUCCEED(rc)) {
                 LOGE(mModule, "Failed to prepare request client handler, %d", rc);
             }
+            delayMs(100);
         }
     }
 

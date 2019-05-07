@@ -70,6 +70,7 @@ int32_t SiriusClientCore::prepare()
     int32_t fd = -1;
     int32_t size = 0;
     bool locked  = false;
+    char mSocketMsg[SOCKET_DATA_MAX_LEN];
 
     if (SUCCEED(rc)) {
         if (!kHeaderInited) {
@@ -125,13 +126,28 @@ int32_t SiriusClientCore::prepare()
             rc = BAD_PROTOCAL;
         }
     }
-
     if (SUCCEED(rc)) {
         rc = mSC.sendMsg(SOCKET_CLIENT_REPLY_STR,
             strlen(SOCKET_CLIENT_REPLY_STR));
         if (!SUCCEED(rc)) {
             LOGE(mModule, "Failed to send msg \"%s\" to server, %d",
                 SOCKET_CLIENT_REPLY_STR, rc);
+        }
+    }
+
+    if (SUCCEED(rc)) {
+        mSocketMsg[0] = '\0';
+        rc = mSC.receiveMsg(mSocketMsg, sizeof(mSocketMsg));
+        if (!SUCCEED(rc)) {
+            LOGE(mModule, "Failed to send msg \"%s\" to server, %d",
+                SOCKET_CLIENT_REPLY_STR, rc);
+        }
+    }
+
+    if (SUCCEED(rc)) {
+        if (!COMPARE_SAME_STRING(mSocketMsg, SOCKET_CLIENT_REPLY_STR)) {
+            LOGE(mModule, "Unknown msg received, \"%s\"", mSocketMsg);
+            rc = NOT_READY;
         }
     }
 
@@ -194,7 +210,6 @@ int32_t SiriusClientCore::destruct()
     }
 
     if (SUCCEED(rc)) {
-        mSC.cancelWaitMsg();
         rc = mSC.destruct();
         if (!SUCCEED(rc)) {
             final |= rc;
@@ -270,9 +285,14 @@ int32_t SiriusClientCore::importBuf(void **buf, int32_t fd, int32_t len)
     return mBufMgr->import(buf, fd, len);
 }
 
+int32_t SiriusClientCore::flushBuf(void *buf)
+{
+    return mBufMgr->flush(buf);
+}
+
 int32_t SiriusClientCore::releaseBuf(void *buf)
 {
-    return mBufMgr->release(buf);
+    return mBufMgr->release_remove(buf);
 }
 
 int32_t SiriusClientCore::getUsedMem(RequestType type, int32_t *fd)

@@ -1,6 +1,7 @@
 #include "SocketClientStateMachine.h"
 #include "socket_client.h"
 #include "socket_server.h"
+#include "configuration.h"
 
 namespace sirius {
 
@@ -11,33 +12,61 @@ int32_t SocketClientStateMachine::connectServer()
 
 int32_t SocketClientStateMachine::receiveMsg(char *data, int32_t maxlen)
 {
+    int32_t rc = NO_ERROR;
     msg_info msg = {
         .msg = data,
         .len = 0,
         .max_len = maxlen,
     };
-    return stateMachine(CMD_RECEIVE_MSG, &msg);
+    if (SUCCEED(rc)) {
+        pthread_mutex_lock(&mMsgLock);
+        rc =  stateMachine(CMD_RECEIVE_MSG, &msg);
+        pthread_mutex_unlock(&mMsgLock);
+    }
+
+    return rc;
 }
 
 int32_t SocketClientStateMachine::sendMsg(const char *data, int32_t msglen)
 {
+    int32_t rc = NO_ERROR;
     msg_info msg = {
         .msg = const_cast<char *>(data),
         .len = msglen,
         .max_len = msglen,
     };
-    return stateMachine(CMD_SEND_MSG, &msg);
+    if (SUCCEED(rc)) {
+        pthread_mutex_lock(&mMsgLock);
+        rc = stateMachine(CMD_SEND_MSG, &msg);
+        pthread_mutex_unlock(&mMsgLock);
+    }
+
+    return rc;
 }
 
 int32_t SocketClientStateMachine::receiveFd(int32_t *fd)
 {
-    return stateMachine(CMD_RECEIVE_FD, fd);
+    int32_t rc = NO_ERROR;
+    if (SUCCEED(rc)) {
+        pthread_mutex_lock(&mMsgLock);
+        rc =  stateMachine(CMD_RECEIVE_FD, fd);
+        pthread_mutex_unlock(&mMsgLock);
+    }
+
+    return rc;
 }
 
 int32_t SocketClientStateMachine::sendFd(int32_t fd)
 {
+    int32_t rc = NO_ERROR;
     int32_t copied_fd = fd;
-    return stateMachine(CMD_SEND_FD, &copied_fd);
+    if (SUCCEED(rc)) {
+        pthread_mutex_lock(&mMsgLock);
+        rc = stateMachine(CMD_SEND_FD, &copied_fd);
+        pthread_mutex_unlock(&mMsgLock);
+    }
+
+    return rc;
 }
 
 int32_t SocketClientStateMachine::cancelWaitMsg()
@@ -52,14 +81,17 @@ bool SocketClientStateMachine::connected()
     return mServerFd != -1;
 }
 
-SocketClientStateMachine::SocketClientStateMachine() :
+SocketClientStateMachine::SocketClientStateMachine(
+    const char *socketName) :
     mConstructed(false),
     mServerFd(-1),
     mStatus(STATUS_UNINITED),
     mModule(MODULE_SOCKET_CLIENT_SM),
     mCancelWait(false),
+    mSocketName(socketName),
     mThread(getModuleName(mModule))
 {
+    pthread_mutex_init(&mMsgLock, NULL);
 }
 
 SocketClientStateMachine::~SocketClientStateMachine()
@@ -67,6 +99,7 @@ SocketClientStateMachine::~SocketClientStateMachine()
     if (mConstructed) {
         destruct();
     }
+    pthread_mutex_destroy(&mMsgLock);
 }
 
 int32_t SocketClientStateMachine::construct()
@@ -75,6 +108,13 @@ int32_t SocketClientStateMachine::construct()
 
     if (mConstructed) {
         rc = ALREADY_INITED;
+    }
+
+    if (SUCCEED(rc)) {
+        rc = cancelWaitMsg();
+        if (!SUCCEED(rc)) {
+            LOGE(mModule, "Failed to cancel wait msg, %d", rc);
+        }
     }
 
     if (SUCCEED(rc)) {
@@ -103,6 +143,13 @@ int32_t SocketClientStateMachine::destruct()
     }
 
     if (SUCCEED(rc)) {
+        rc = cancelWaitMsg();
+        if (!SUCCEED(rc)) {
+            LOGE(mModule, "Failed to destruct thread");
+        }
+    }
+
+    if (SUCCEED(rc)) {
         rc = mThread.destruct();
         if (!SUCCEED(rc)) {
             LOGE(mModule, "Failed to destruct thread");
@@ -125,13 +172,14 @@ int32_t SocketClientStateMachine::processTask(cmd_info *info)
 
     switch (info->cmd) {
         case CMD_CONNECT_SERVER: {
-            rc = connect_to_server(&mServerFd);
+            rc = connect_to_server(&mServerFd, mSocketName);
             if (!SUCCEED(rc)) {
                 LOGD(mModule, "Failed to connect server, "
                     "may not started, %d", rc);
             }
         } break;
         case CMD_RECEIVE_MSG: {
+            mCancelWait = false;
             char *data = info->u.msg->msg;
             int32_t *len = &info->u.msg->len;
             int32_t max_len = info->u.msg->max_len;

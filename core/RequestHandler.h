@@ -2,7 +2,7 @@
 #define _REQUEST_HANDLER_H_
 
 #include "common.h"
-#include "SiriusIntf.h"
+#include "SiriusServerIntf.h"
 #include "HandlerOpsIntf.h"
 #include "RequestHandlerIntf.h"
 #include "ThreadPoolEx.h"
@@ -31,6 +31,8 @@ public:
 protected:
     virtual int32_t getHeaderSize() = 0;
     virtual int32_t getDataSize() = 0;
+    virtual int32_t sendFreshData(
+        RequestType type, int32_t id, void *head, void *dat);
 
 private:
     virtual int32_t startServerLoop();

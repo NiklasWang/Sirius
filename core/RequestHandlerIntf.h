@@ -1,7 +1,7 @@
 #ifndef _REQUEST_HANDLER_INTF_H_
 #define _REQUEST_HANDLER_INTF_H_
 
-#include "SiriusIntf.h"
+#include "SiriusServerIntf.h"
 
 namespace sirius {
 

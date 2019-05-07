@@ -32,6 +32,8 @@ static const char *const ModuleName[] = {
     [MODULE_OBJECT_BUFFER]          = "object buffer",
     [MODULE_UTILS]                  = "utils",
     [MODULE_TOOLS]                  = "tools",
+    [MODULE_SERVER_TESTER]          = "server tester",
+    [MODULE_CLIENT_TESTER]          = "client tester",
     [MODULE_TESTER]                 = "tester",
     [MODULE_MAX_INVALID]            = "max_invalid",
 };
@@ -64,7 +66,9 @@ static const char *const ModuleShortName[] = {
     [MODULE_OBJECT_BUFFER]          = "[OBJBF]",
     [MODULE_UTILS]                  = "[ UTIL]",
     [MODULE_TOOLS]                  = "[TOOLS]",
-    [MODULE_TESTER]                 = "[TESTE]",
+    [MODULE_SERVER_TESTER]          = "[STEST]",
+    [MODULE_CLIENT_TESTER]          = "[CTEST]",
+    [MODULE_TESTER]                 = "[ TEST]",
     [MODULE_MAX_INVALID]            = "[ INVA]",
 };
 

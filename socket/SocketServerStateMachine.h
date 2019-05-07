@@ -84,7 +84,7 @@ private:
     void updateToNewStatus(status state);
 
 public:
-    SocketServerStateMachine();
+    SocketServerStateMachine(const char *socketName = SERVER_SOCKET_NAME);
     virtual ~SocketServerStateMachine();
     SocketServerStateMachine(const SocketServerStateMachine &rhs);
     SocketServerStateMachine &operator=(const SocketServerStateMachine &rhs);
@@ -96,18 +96,19 @@ private:
     int32_t executeOnThread(cmd_info *task);
 
 private:
-    bool       mConstructed;
-    bool       mOwnServer;
-    int32_t    mClientFd;
-    status     mStatus;
-    bool       mWaitingMsg;
-    bool       mCancelConnect;
-    bool       mCancelMsg;
-    ModuleType mModule;
+    bool    mConstructed;
+    bool    mOwnServer;
+    int32_t mServerFd;
+    int32_t mClientFd;
+    status  mStatus;
+    bool    mWaitingMsg;
+    bool    mCancelConnect;
+    bool    mCancelMsg;
+    ModuleType  mModule;
+    const char *mSocketName;
     ThreadT<cmd_info> mThread;
 
 private:
-    static int32_t      kServerFd;
     static const SMFunc kFunc[];
     static const char * const kStateStr[];
     static const char * const kCmdStr[];

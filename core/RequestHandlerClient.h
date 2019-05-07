@@ -2,7 +2,7 @@
 #define _REQUEST_HANDLER_CLIENT_H_
 
 #include "common.h"
-#include "SiriusIntf.h"
+#include "SiriusServerIntf.h"
 #include "ThreadPoolEx.h"
 #include "SiriusClientCore.h"
 #include "SocketClientStateMachine.h"
@@ -16,6 +16,7 @@ public:
     int32_t onDataReady(void *header, uint8_t *dat);
     int32_t prepare();
 
+    bool Ready();
     const char *getName();
     RequestType getType();
 
@@ -57,10 +58,10 @@ protected:
     int32_t     mMemMaxNum;
     MemoryMap  *mMemMap;
     pthread_mutex_t mLocker;
-    SocketClientStateMachine mSC;
 
 protected:
-    static SiriusClientCore kCore;
+    SocketClientStateMachine mSC;
+    static SiriusClientCore  kCore;
 };
 
 };

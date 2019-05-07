@@ -3,7 +3,7 @@
 
 #include "common.h"
 #include "configuration.h"
-#include "SiriusIntf.h"
+#include "SiriusServerIntf.h"
 
 namespace sirius {
 
@@ -20,6 +20,7 @@ public:
     int32_t addMemory(RequestType type, int32_t clientfd, bool fresh = false);
     int32_t getHeader(Header &header);
     int32_t setHeader(Header &header);
+    int32_t resetCtrlMem(RequestType type);
 
 public:
     int32_t getTotoalSize();
@@ -46,7 +47,6 @@ private:
         MemoryStatus stat;
         int64_t ts;
         pthread_mutex_t l;
-        bool    writting;
     };
 
     struct MemoryBlock {

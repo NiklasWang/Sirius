@@ -8,7 +8,7 @@
 
 namespace sirius {
 
-int32_t connect_to_server(int32_t *fd)
+int32_t connect_to_server(int32_t *fd, const char *socketName)
 {
     struct sockaddr_un server_addr;
     socklen_t addr_len;
@@ -29,7 +29,7 @@ int32_t connect_to_server(int32_t *fd)
         memset((unsigned char *)&server_addr, 0, sizeof(server_addr));
         server_addr.sun_family = AF_UNIX;
         strcpy(server_addr.sun_path, SERVER_SOCKET_PATH);
-        strcat(server_addr.sun_path, SERVER_SOCKET_NAME);
+        strcat(server_addr.sun_path, socketName);
         addr_len = strlen(server_addr.sun_path) + sizeof(server_addr.sun_family);
     }
 

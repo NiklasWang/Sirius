@@ -8,7 +8,7 @@
 
 namespace sirius {
 
-int32_t start_server(int32_t *socketfd)
+int32_t start_server(int32_t *socketfd, const char *socketName)
 {
     struct sockaddr_un server_addr;
     socklen_t addr_len;
@@ -31,7 +31,7 @@ int32_t start_server(int32_t *socketfd)
         memset((unsigned char *)&server_addr, 0, sizeof(server_addr));
         server_addr.sun_family = AF_UNIX;
         strcpy(server_addr.sun_path, SERVER_SOCKET_PATH);
-        strcat(server_addr.sun_path, SERVER_SOCKET_NAME);
+        strcat(server_addr.sun_path, socketName);
         addr_len = strlen(server_addr.sun_path) + sizeof(server_addr.sun_family);
         LOGD(MODULE_SOCKET_SERVER,
             "Connection socket name %s", server_addr.sun_path);
@@ -192,7 +192,7 @@ int32_t disconnect_client(int32_t clientfd)
     return NO_ERROR;
 }
 
-int32_t stop_server(int32_t sockfd)
+int32_t stop_server(int32_t sockfd, const char *socketName)
 {
     char path[PATH_MAX];
 
@@ -200,7 +200,7 @@ int32_t stop_server(int32_t sockfd)
     close(sockfd);
 
     strcpy(path, SERVER_SOCKET_PATH);
-    strcat(path, SERVER_SOCKET_NAME);
+    strcat(path, socketName);
     if (!access(path, F_OK)) {
         unlink(path);
     }
@@ -239,17 +239,17 @@ int32_t poll_read_wait(int32_t clientfd,
     int32_t rc = NO_ERROR;
 
     do {
+        if (*cancel) {
+            LOGI(MODULE_SOCKET_SERVER, "Cancelled to wait for message");
+            rc = USER_ABORTED;
+            break;
+        }
         rc = poll_read(clientfd, dat, max_len, read_len);
         if (SUCCEED(rc)) {
             break;
         } else if (rc != TIMEDOUT) {
             LOGE(MODULE_SOCKET_SERVER,
                 "Failed to poll data from client, %d", rc);
-            break;
-        }
-        if (*cancel) {
-            LOGI(MODULE_SOCKET_SERVER, "Cancelled to wait for message");
-            rc = USER_ABORTED;
             break;
         }
     } while (true);

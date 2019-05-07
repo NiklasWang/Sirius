@@ -16,7 +16,7 @@
 #include "version.h"
 #include "modules.h"
 #include "logs.h"
-#include "SiriusIntf.h"
+#include "SiriusServerIntf.h"
 
 namespace sirius {
 
@@ -35,6 +35,7 @@ enum err_raeson {
     ALREADY_EXISTS,
     NOT_INITED,
     NOT_REQUIRED,
+    NOT_SUPPORTED,
     BAD_PROTOCAL,
     USER_ABORTED,
     JUMP_DONE,

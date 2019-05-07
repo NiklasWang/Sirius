@@ -15,6 +15,7 @@ public:
     virtual int32_t flush(void *buf) = 0;
     virtual int32_t import(void **buf, int32_t fd, int32_t len) = 0;
     virtual int32_t release(void *buf) = 0;
+    virtual int32_t release_remove(void *buf) = 0;
     virtual void clear_all() = 0;
 
 public:

@@ -66,9 +66,9 @@ int32_t ServerClientControl::getUsedMem(
     if (SUCCEED(rc)) {
         for (int32_t i = 0; i < mCtl->request[getType(type)].memNum; i++) {
             pthread_mutex_lock(&mem[i].l);
-            if (mem[i].stat == MEMORY_STAT_USED && !mem[i].writting) {
+            if (mem[i].stat == MEMORY_STAT_USED) {
                 index = i;
-                mem[i].writting = true;
+                mem[i].stat = MEMORY_STAT_FRESH;
             }
             pthread_mutex_unlock(&mem[i].l);
             if (index != -1) {
@@ -128,7 +128,6 @@ int32_t ServerClientControl::setMemStatus(
 
     if (SUCCEED(rc)) {
         mem->stat = fresh ? MEMORY_STAT_FRESH : MEMORY_STAT_USED;
-        mem->writting = false;
         mem->ts = currentUs();
     }
 
@@ -195,7 +194,6 @@ int32_t ServerClientControl::addMemory(
             mems[i].stat = fresh ? MEMORY_STAT_FRESH : MEMORY_STAT_USED;
             mems[i].ts = currentUs();
             pthread_mutex_init(&mems[i].l, NULL);
-            mems[i].writting = false;
             rc = NO_ERROR;
             break;
         }
@@ -217,6 +215,21 @@ int32_t ServerClientControl::getHeader(Header &header)
 int32_t ServerClientControl::setHeader(Header &header)
 {
     mCtl->header = header;
+    return NO_ERROR;
+}
+
+int32_t ServerClientControl::resetCtrlMem(RequestType type)
+{
+
+    for (int32_t j = 0; j < REQUEST_HANDLER_MAX_MEMORY_NUM; j++) {
+        mCtl->request[type].mems[j].fd = -1;
+        mCtl->request[type].mems[j].stat = MEMORY_STAT_USED;
+        mCtl->request[type].mems[j].ts = 0;
+        pthread_mutex_destroy(&mCtl->request[type].mems[j].l);
+    }
+
+    mCtl->request[type].memNum = 0;
+
     return NO_ERROR;
 }
 
@@ -248,7 +261,6 @@ int32_t ServerClientControl::init(void *mem, int32_t size, bool init)
                 mCtl->request[i].mems[j].stat = MEMORY_STAT_USED;
                 mCtl->request[i].mems[j].ts = 0;
                 pthread_mutex_init(&mCtl->request[i].mems[j].l, NULL);
-                mCtl->request[i].mems[j].writting = false;
             }
         }
     }

@@ -24,7 +24,7 @@ private:
     Semaphore &operator=(const Semaphore &rhs) = delete;
 
 protected:
-    int cnt;
+    volatile int cnt;
     pthread_mutex_t mutex;
     pthread_cond_t cond;
 };

@@ -42,16 +42,25 @@ int32_t EventServer::startServerLoop()
         }
 
         if (SUCCEED(rc)) {
-            rc = convertMsgToEvt(msg, info);
-            if (!SUCCEED(rc)) {
-                LOGE(mModule, "Failed to convert, %s", msg);
-            }
-        }
+            for (int32_t i = 0; msg[i] != '\0' && i < SOCKET_DATA_MAX_LEN; i++) {
+                if (COMPARE_SAME_LEN_STRING(msg + i,
+                            SOCKET_EVENT_REQUEST_FORMAT,
+                            strlen(SOCKET_EVENT_REQUEST_FORMAT))) {
 
-        if (SUCCEED(rc)) {
-            rc = onNewEvent(info);
-            if (!SUCCEED(rc)) {
-                LOGE(mModule, "Failed to send evt, %d", rc);
+                    if (SUCCEED(rc)) {
+                        rc = convertMsgToEvt(msg + i, info);
+                        if (!SUCCEED(rc)) {
+                            LOGE(mModule, "Failed to convert, %s", msg + i);
+                        }
+                    }
+
+                    if (SUCCEED(rc)) {
+                        rc = onNewEvent(info);
+                        if (!SUCCEED(rc)) {
+                            LOGE(mModule, "Failed to send evt, %d", rc);
+                        }
+                    }
+                }
             }
         }
     } while (rc != USER_ABORTED);
@@ -78,15 +87,6 @@ EventServer::EvtInfo::EvtInfo() :
 int32_t EventServer::convertMsgToEvt(char *msg, EvtInfo &info)
 {
     int32_t rc = NO_ERROR;
-
-    if (SUCCEED(rc)) {
-        int32_t len = strlen(SOCKET_EVENT_REQUEST_FORMAT);
-        if (!COMPARE_SAME_LEN_STRING(msg,
-            SOCKET_EVENT_REQUEST_FORMAT, len)) {
-            LOGE(mModule, "Invalid evt msg, %s", msg);
-            rc = PARAM_INVALID;
-        }
-    }
 
     if (SUCCEED(rc)) {
         EvtInfo _info;

@@ -2,7 +2,7 @@
 #define _EVENT_REQUEST_CLIENT_H_
 
 #include "modules.h"
-#include "SiriusIntf.h"
+#include "SiriusServerIntf.h"
 #include "common.h"
 #include "RequestHandlerClient.h"
 

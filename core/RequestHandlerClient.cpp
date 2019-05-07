@@ -14,7 +14,6 @@ RequestHandlerClient::RequestHandlerClient(RequestType type, const char *name, u
     mMemMaxNum(maxNum),
     mMemMap(NULL)
 {
-    ASSERT_LOG(mModule, maxNum > 0,  "Max mem num should > 0");
     ASSERT_LOG(mModule, maxNum <= REQUEST_HANDLER_MAX_MEMORY_NUM,
         "Too much mem to share, %d/%d", maxNum, REQUEST_HANDLER_MAX_MEMORY_NUM);
     ASSERT_LOG(mModule, getRequestType(type) != REQUEST_TYPE_MAX_INVALID,
@@ -155,6 +154,15 @@ int32_t RequestHandlerClient::prepare()
 
     if (SUCCEED(rc)) {
         if (!kCore.ready()) {
+            rc = kCore.construct();
+            if (!SUCCEED(rc)) {
+                LOGE(mModule, "Failed to client sirius client core, %d", rc);
+            }
+        }
+    }
+
+    if (SUCCEED(rc)) {
+        if (!kCore.ready()) {
             rc = kCore.prepare();
             if (!SUCCEED(rc)) {
                 LOGI(mModule, "Failed to prepare sirius client core, %d", rc);
@@ -163,11 +171,11 @@ int32_t RequestHandlerClient::prepare()
     }
 
     if (SUCCEED(rc)) {
-        if (!mConnected) {
+        while (!mConnected) {
             rc = mSC.connectServer();
             if (!SUCCEED(rc)) {
                 LOGD(mModule, "Failed to connect server, "
-                    "may not started, %s %d", strerror(errno), rc);
+                    "may not started, try again, %s %d", strerror(errno), rc);
                 rc = NOT_EXIST;
             } else {
                 mConnected = true;
@@ -178,7 +186,7 @@ int32_t RequestHandlerClient::prepare()
     if (SUCCEED(rc)) {
         char msg[SOCKET_DATA_MAX_LEN];
         sprintf(msg, SOCKET_CLIENT_CONNECT_TYPE " %d", getType());
-        rc = mSC.sendMsg(SOCKET_CLIENT_CONNECT_TYPE, strlen(msg));
+        rc = mSC.sendMsg(msg, strlen(msg));
         if (!SUCCEED(rc)) {
             LOGE(mModule, "Failed to send msg \"%s\" to server, %d", msg, rc);
         }
@@ -337,9 +345,9 @@ int32_t RequestHandlerClient::convertToRequestType(
         rc = PARAM_INVALID;
     }
 
-    if (!SUCCEED(rc)) {
+    if (SUCCEED(rc)) {
         type = atoi(msg + strlen(prefix) + 1);
-        if (type <= 0) {
+        if (type < 0) {
             LOGE(mModule, "Invalid msg, \"%s\"", msg);
             rc = NOT_FOUND;
         } else {
@@ -356,6 +364,17 @@ bool RequestHandlerClient::requested()
     int32_t rc  = NO_ERROR;
     bool result = false;
 
+    pthread_mutex_lock(&mLocker);
+
+    if (SUCCEED(rc)) {
+        if (!kCore.ready()) {
+            rc = kCore.construct();
+            if (!SUCCEED(rc)) {
+                LOGE(mModule, "Failed to client sirius client core, %d", rc);
+            }
+        }
+    }
+
     if (SUCCEED(rc)) {
         if (!kCore.ready()) {
             rc = kCore.prepare();
@@ -370,6 +389,8 @@ bool RequestHandlerClient::requested()
             result = true;
         }
     }
+
+    pthread_mutex_unlock(&mLocker);
 
     return result;
 }
@@ -489,6 +510,7 @@ int32_t RequestHandlerClient::onDataReady(void *header, uint8_t *dat)
         if (!SUCCEED(rc)) {
             LOGE(mModule, "Failed to copy to server, %d", rc);
         }
+        kCore.flushBuf(mem);
     }
 
     if (SUCCEED(rc)) {
@@ -505,7 +527,7 @@ int32_t RequestHandlerClient::onDataReady(void *header, uint8_t *dat)
         }
     }
 
-    return rc;
+    return  RETURNIGNORE(rc, NOT_FOUND);
 }
 
 int32_t RequestHandlerClient::notifyDataReady(int32_t fd)
@@ -522,6 +544,11 @@ int32_t RequestHandlerClient::notifyDataReady(int32_t fd)
     }
 
     return rc;
+}
+
+bool RequestHandlerClient::Ready()
+{
+    return mReady;
 }
 
 SiriusClientCore RequestHandlerClient::kCore;

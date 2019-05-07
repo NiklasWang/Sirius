@@ -4,6 +4,8 @@
 #include "common.h"
 #include "SyncType.h"
 #include "ThreadT.h"
+#include "configuration.h"
+#include "RWLock.h"
 
 namespace sirius {
 
@@ -72,7 +74,7 @@ private:
     void updateToNewStatus(status state);
 
 public:
-    SocketClientStateMachine();
+    SocketClientStateMachine(const char *socketName = SERVER_SOCKET_NAME);
     virtual ~SocketClientStateMachine();
     int32_t construct();
     int32_t destruct();
@@ -81,12 +83,14 @@ private:
     typedef int32_t (SocketClientStateMachine::*SMFunc)(cmd_type cmd, void *arg);
 
 private:
-    bool       mConstructed;
-    int32_t    mServerFd;
-    status     mStatus;
-    ModuleType mModule;
-    bool       mCancelWait;
-    ThreadT<cmd_info>   mThread;
+    bool        mConstructed;
+    int32_t     mServerFd;
+    status      mStatus;
+    ModuleType  mModule;
+    bool        mCancelWait;
+    const char *mSocketName;
+    pthread_mutex_t  mMsgLock;
+    ThreadT<cmd_info> mThread;
 
 private:
     static const SMFunc mFunc[];

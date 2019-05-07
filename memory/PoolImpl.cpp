@@ -140,9 +140,12 @@ void *PoolMalloc(MemoryPool *pPool, unsigned int uSize)
         if (NULL != pPtr) {
             *((sizetype *)GetOffset(pPtr, sizeof(BigBlock))) = uSize;
             pBigBlock->data = GetOffset(pPtr, sizeof(BigBlock) + sizeof(sizetype));
-            pBigBlock->pNext = pPool->pFirstBigBlock;
             pBigBlock->pPre = NULL;
-            (NULL != pPool->pFirstBigBlock) ? (pPool->pFirstBigBlock->pPre = pBigBlock) : 0;
+            pBigBlock->pNext = NULL;
+            if (pPool->pFirstBigBlock != NULL) {
+                pBigBlock->pNext = pPool->pFirstBigBlock;
+                pPool->pFirstBigBlock->pPre = pBigBlock;
+            }
             pPool->pFirstBigBlock = pBigBlock;
         }
         pResult = (NULL != pPtr) ? pBigBlock->data : NULL;
@@ -198,8 +201,14 @@ void PoolFree(MemoryPool *pPool, void *pPtr)
         BigBlock *pBigBlock = (BigBlock *)pPtr;
         if (NULL == pBigBlock->pPre) {
             pPool->pFirstBigBlock = pBigBlock->pNext;
+            if (pPool->pFirstBigBlock) {
+                pPool->pFirstBigBlock->pPre = NULL;
+            }
+        } else if(NULL == pBigBlock->pNext){
+            pBigBlock->pPre->pNext = NULL;
         } else {
             pBigBlock->pPre->pNext = pBigBlock->pNext;
+            pBigBlock->pNext->pPre = pBigBlock->pPre;
         }
         free(pPtr);
     } else {

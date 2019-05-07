@@ -310,6 +310,26 @@ int32_t IonBufferMgr::release(Buffer *buf)
     return rc;
 }
 
+int32_t IonBufferMgr::release_remove(void *buf)
+{
+    int32_t rc = NO_ERROR;
+    Buffer *buffer = findBuf(buf);
+
+    if (ISNULL(buffer)) {
+        LOGE(mModule, "Failed to find memory.");
+        rc = NO_MEMORY;
+    }
+
+    if (SUCCEED(rc)) {
+        rc = release_remove(buffer);
+        if (!SUCCEED(rc)) {
+            LOGE(mModule, "Failed to release buf, %d", rc);
+        }
+    }
+
+    return rc;
+}
+
 int32_t IonBufferMgr::release_remove(Buffer *buf)
 {
     int32_t rc = NO_ERROR;
@@ -351,7 +371,9 @@ void IonBufferMgr::clear_all()
     RWLock::AutoWLock l(mBufLock);
     auto iter = mBuffers.begin();
     while (iter != mBuffers.end()) {
-        release(iter->mPtr);
+        if (NOTNULL(iter->mPtr)) {
+            release(iter->mPtr);
+        }
         mBuffers.erase(iter);
         iter = mBuffers.begin();
     }

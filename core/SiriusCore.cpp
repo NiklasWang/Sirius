@@ -157,6 +157,15 @@ int32_t SiriusCore::startServerLoop()
     }
 
     if (SUCCEED(rc)) {
+        rc = mSS.sendMsg(SOCKET_CLIENT_REPLY_STR,
+            strlen(SOCKET_CLIENT_REPLY_STR));
+        if (!SUCCEED(rc)) {
+            LOGE(mModule, "Failed to send msg \"%s\" to server, %d",
+                SOCKET_CLIENT_REPLY_STR, rc);
+        }
+    }
+
+    if (SUCCEED(rc)) {
         do {
             int32_t clientfd = -1;
             RequestType type = REQUEST_TYPE_MAX_INVALID;
@@ -190,7 +199,7 @@ int32_t SiriusCore::startServerLoop()
 
             if (SUCCEED(rc)) {
                 if (ISNULL(mRequests[type])) {
-                    LOGE(mModule, "Request not created, should't be here.");
+                    LOGE(mModule, "Request %d not created, should't be here.", type);
                     rc = BAD_PROTOCAL;
                 }
             }
@@ -205,7 +214,7 @@ int32_t SiriusCore::startServerLoop()
 
             if (SUCCEED(rc)) {
                 rc = mRequests[type]->setSocketFd(clientfd);
-                if (!SUCCEED(rc)) {
+                if (!SUCCEED(rc) && rc != JUMP_DONE) {
                     LOGE(mModule, "Failed to set socket fd %d to %s",
                         clientfd, mRequests[type]->getName());
                 }
@@ -425,7 +434,7 @@ int32_t SiriusCore::createRequestHandler(RequestType type)
     }
 
     if (!SUCCEED(rc)) {
-        if (NOTNULL(requestHandler)) {
+        if (ISNULL(requestHandler)) {
             mRequests[type] = NULL;
             SECURE_DELETE(requestHandler);
         }
@@ -492,6 +501,14 @@ int32_t SiriusCore::abort(RequestType type)
     }
 
     if (SUCCEED(rc)) {
+        rc = mCtl.resetCtrlMem(type);
+        if (!SUCCEED(rc)) {
+            LOGE(mModule, "Failed to reset memory type %d, %d",
+                type, rc);
+        }
+    }
+
+    if (SUCCEED(rc)) {
         requestHandler = mRequests[type];
         rc = requestHandler->abort();
         if (!SUCCEED(rc)) {
@@ -513,7 +530,7 @@ int32_t SiriusCore::abort(RequestType type)
         mRequests[type] = NULL;
     }
 
-    return RETURNIGNORE(rc, JUMP_DONE);
+    return RETURNIGNORE(rc, NOT_INITED);
 }
 
 bool SiriusCore::requested(RequestType type)
@@ -548,7 +565,7 @@ int32_t SiriusCore::enqueue(RequestType type, int32_t id)
 
     if (SUCCEED(rc)) {
         if (ISNULL(mRequests[type])) {
-            LOGE(mModule, "Request not created, should't be here.");
+            LOGW(mModule, "Request not created, should't be here.");
             rc = NOT_REQUIRED;
         }
     }
@@ -569,12 +586,22 @@ int32_t SiriusCore::enqueue(RequestType type, int32_t id)
         }
     }
 
-    return rc;
+    return RETURNIGNORE(rc, NOT_REQUIRED);
 }
 
-int32_t SiriusCore::setCallback(RequestCbFunc requestCb, EventCbFunc eventCb)
+int32_t SiriusCore::setCallback(RequestCbFunc requestCb)
 {
-    return mCb.setCb(requestCb, eventCb);
+    return mCb.setCallback(requestCb);
+}
+
+int32_t SiriusCore::setCallback(EventCbFunc eventCb)
+{
+    return mCb.setCallback(eventCb);
+}
+
+int32_t SiriusCore::setCallback(DataCbFunc dataCb)
+{
+    return mCb.setCallback(dataCb);
 }
 
 int32_t SiriusCore::send(RequestType type, int32_t id, void *head, void *dat)
@@ -585,6 +612,11 @@ int32_t SiriusCore::send(RequestType type, int32_t id, void *head, void *dat)
 int32_t SiriusCore::send(int32_t event, int32_t arg1, int32_t arg2)
 {
     return mCb.send(event, arg1, arg2);
+}
+
+int32_t SiriusCore::send(int32_t type, void *data, int32_t size)
+{
+    return mCb.send(type, data, size);
 }
 
 int32_t SiriusCore::allocateBuf(void **buf, int32_t len, int32_t *fd)
@@ -656,7 +688,9 @@ SiriusCore::~SiriusCore()
 
 #include "PreviewServer.h"
 #include "YuvPictureServer.h"
+#include "BayerPictureServer.h"
 #include "EventServer.h"
+#include "DataServer.h"
 
 namespace sirius {
 
@@ -672,9 +706,13 @@ RequestHandler *SiriusCore::createHandler(RequestType type)
             request = new YuvPictureServer(this);
         } break;
         case PICTURE_BAYER: {
+            request = new BayerPictureServer(this);
         } break;
         case EXTENDED_EVENT: {
             request = new EventServer(this);
+        } break;
+        case CUSTOM_DATA: {
+            request = new DataServer(this);
         } break;
         default: {
             LOGE(mModule, "Invalid request type %d", type);

@@ -2,7 +2,7 @@
 #define _SIRIUS_CLIENT_CORE_H_
 
 #include "common.h"
-#include "SiriusIntf.h"
+#include "SiriusServerIntf.h"
 #include "ServerClientControl.h"
 #include "BufferMgrIntf.h"
 #include "HandlerOpsIntf.h"
@@ -19,6 +19,7 @@ public:
 
     bool requested(RequestType type);
     int32_t importBuf(void **buf, int32_t fd, int32_t len);
+    int32_t flushBuf(void *buf);
     int32_t releaseBuf(void *buf);
     int32_t getUsedMem(RequestType type, int32_t *fd);
     int32_t setMemStatus(RequestType type, int32_t fd, bool fresh = USED_MEMORY);

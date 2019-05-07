@@ -2,7 +2,7 @@
 #define _SIRIUS_CORE_H_
 
 #include "common.h"
-#include "SiriusIntf.h"
+#include "SiriusServerIntf.h"
 #include "HandlerOpsIntf.h"
 #include "BufferMgr.h"
 #include "ServerClientControl.h"
@@ -14,18 +14,21 @@
 namespace sirius {
 
 class SiriusCore :
-    public SiriusIntf,
+    public SiriusServerIntf,
     public HandlerOpsIntf,
     public noncopyable {
 public:
     int32_t request(RequestType type) override;
     int32_t abort(RequestType type) override;
     int32_t enqueue(RequestType type, int32_t id) override;
-    int32_t setCallback(RequestCbFunc requestCb, EventCbFunc eventCb) override;
+    int32_t setCallback(RequestCbFunc requestCb) override;
+    int32_t setCallback(EventCbFunc eventCb) override;
+    int32_t setCallback(DataCbFunc dataCb) override;
 
 public:
     int32_t send(RequestType type, int32_t id, void *head, void *dat) override;
     int32_t send(int32_t event, int32_t arg1, int32_t arg2) override;
+    int32_t send(int32_t type, void *data, int32_t size) override;
     int32_t allocateBuf(void **buf, int32_t len, int32_t *fd) override;
     int32_t releaseBuf(void *buf) override;
     int32_t setMemStatus(RequestType type, int32_t fd, bool fresh = false) override;
